@@ -5,6 +5,8 @@
 #include "TextCommands.h"
 #include <algorithm>
 #include <stdexcept>
+#include <fstream>
+#include <iostream>
 
 // WorkspaceMemento实现
 
@@ -225,4 +227,123 @@ void WorkSpace::notifyObservers(const Event& event) {
     for (const auto& observer : observers_) {
         observer->update(event);
     }
+}
+
+void WorkSpace::loadFile(const std::string& fileName) {
+    // 检查文件是否已经打开，如果是，则直接切换到该文件
+    if (isFileOpen(fileName)) {
+        setActiveFile(fileName);
+        return;
+    }
+
+    std::ifstream file(fileName);
+    if (file.good()) {
+        // 文件存在，读取内容
+        std::vector<std::string> lines;
+        std::string line;
+        while (std::getline(file, line)) {
+            lines.push_back(line);
+        }
+        file.close();
+
+        // 创建TextEditor并设置内容
+        auto editor = std::make_shared<TextEditor>();
+        auto textEngine = std::make_shared<TextEngine>();
+        editor->setTextEngine(textEngine);
+        editor->setLines(lines);
+        editor->setModified(false); // 从磁盘加载，未修改
+
+        openFiles_[fileName] = editor;
+        fileModifiedStates_[fileName] = false;
+
+        // 设置为活动文件
+        if (activeFileName_.empty()) {
+            activeFileName_ = fileName;
+        } else {
+            // 保持当前活动文件不变，除非没有活动文件
+        }
+    } else {
+        // 文件不存在，创建新的空文件
+        openFile(fileName); // 使用现有的openFile方法创建空编辑器
+        fileModifiedStates_[fileName] = true; // 标记为已修改（新文件）
+        // 设置为活动文件
+        setActiveFile(fileName);
+    }
+}
+
+void WorkSpace::saveFile(const std::string& fileName) {
+    if (!isFileOpen(fileName)) {
+        throw std::runtime_error("文件未打开: " + fileName);
+    }
+
+    std::ofstream file(fileName);
+    if (!file) {
+        throw std::runtime_error("无法写入文件: " + fileName);
+    }
+
+    auto editor = getEditor(fileName);
+    if (!editor) {
+        throw std::runtime_error("编辑器不存在: " + fileName);
+    }
+
+    // 将TextEditor内容写入文件
+    auto textEditor = std::dynamic_pointer_cast<TextEditor>(editor);
+    if (textEditor) {
+        const auto& lines = textEditor->getLines();
+        for (size_t i = 0; i < lines.size(); ++i) {
+            file << lines[i];
+            if (i != lines.size() - 1) {
+                file << '\n'; // 行间换行
+            }
+        }
+    } else {
+        // 如果是其他类型的Editor，暂时不支持
+        throw std::runtime_error("不支持的编辑器类型");
+    }
+
+    file.close();
+    setFileModified(fileName, false); // 清除修改标记
+}
+
+void WorkSpace::saveAllFiles() {
+    for (const auto& pair : openFiles_) {
+        const std::string& fileName = pair.first;
+        try {
+            saveFile(fileName);
+        } catch (const std::exception& e) {
+            // 保存单个文件失败，继续保存其他文件
+            // 可以记录错误或重新抛出
+            std::cerr << "保存文件 " << fileName << " 失败: " << e.what() << std::endl;
+        }
+    }
+}
+
+void WorkSpace::initFile(const std::string& fileName, bool withLog) {
+    // 如果文件已打开，则直接切换到该文件
+    if (isFileOpen(fileName)) {
+        setActiveFile(fileName);
+        return;
+    }
+
+    // 创建新的TextEditor
+    auto editor = std::make_shared<TextEditor>();
+    auto textEngine = std::make_shared<TextEngine>();
+    editor->setTextEngine(textEngine);
+
+    if (withLog) {
+        // 在第一行添加 "# log"
+        editor->setLines({ "# log" });
+    } else {
+        // 清空编辑器（保持默认空行）
+        editor->clear();
+    }
+
+    // 标记为已修改（新缓冲区）
+    editor->setModified(true);
+
+    openFiles_[fileName] = editor;
+    fileModifiedStates_[fileName] = true; // 新文件，已修改
+
+    // 设置为活动文件
+    setActiveFile(fileName);
 }

@@ -15,15 +15,15 @@
 2. 插入文本：格式：insert <line:col> "text" 命令：InsertCommand  
 3. 删除字符：格式：delete <line:col> <len> 命令：DeleteCommand   
 4. 替换文本：格式：replace <line:col> <len> "text" 命令：ReplaceCommand  
-5. 显示内容：格式：show \\\[start:end] 命令：ShowCommand  
+5. 显示内容：格式：show [start:end] 命令：ShowCommand  
 #### WorkSpace类命令  
 1. 加载文件：格式：load <file>  
-2. 保存文件：格式：save \\\[file|all]  
-3. 创建新缓冲区：格式：init <file> \\\[with-log]   
-4. 关闭文件：格式：close \\\[file]  
+2. 保存文件：格式：save [file|all]  
+3. 创建新缓冲区：格式：init <file> [with-log]   
+4. 关闭文件：格式：close [file]  
 5. 切换活动文件：格式：edit <file>  
 6. 显示文件列表：格式：editor-list   
-7. 显示目录树：格式：dir-tree \\\[path]  
+7. 显示目录树：格式：dir-tree [path]  
 8. 撤销：格式：undo  
 9. 重做：格式：redo  
 10. 退出程序：格式： exit 

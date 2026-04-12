@@ -61,3 +61,14 @@ bool TextEditor::canUndo() const {
 bool TextEditor::canRedo() const {
     return commandManager.canRedo();
 }
+
+void TextEditor::setLines(const std::vector<std::string>& newLines) {
+    lines = newLines;
+    setModified(false); // 加载文件时视为未修改
+}
+
+void TextEditor::clear() {
+    lines.clear();
+    lines.push_back(""); // 保持至少一个空行
+    setModified(false);
+}

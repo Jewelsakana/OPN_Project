@@ -90,6 +90,12 @@ public:
     // 命令处理相关职责已转移到CommandController类中
     // 使用CommandController进行命令的创建、分发和执行
 
+    // 文件加载和保存功能
+    void loadFile(const std::string& fileName);
+    void saveFile(const std::string& fileName);
+    void saveAllFiles();
+    void initFile(const std::string& fileName, bool withLog = false);
+
 private:
     std::map<std::string, std::shared_ptr<Editor>> openFiles_;  // 打开的文件映射
     std::string activeFileName_;                                // 当前活动文件名

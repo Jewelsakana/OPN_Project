@@ -147,11 +147,11 @@ std::unique_ptr<Command> CommandController::createCommandFromParsed(const Parsed
 
 void CommandController::executeCommand(std::unique_ptr<Command> command) {
     // 判断命令类型：是WorkSpaceCommand还是EditorCommand？
-    if (dynamic_cast<WorkSpaceCommand*>(command.get()) != nullptr) {
-        // 工作区命令，在当前WorkSpace中处理
-        // TODO: 具体处理逻辑暂不实现
-        // 目前只执行命令（但工作区命令需要实现execute方法）
-        command->execute();
+    if (auto* wsCommand = dynamic_cast<WorkSpaceCommand*>(command.get())) {
+        // 工作区命令，设置关联的工作区
+        wsCommand->setWorkSpace(workspace_);
+        // 执行命令
+        wsCommand->execute();
     } else {
         // 编辑器命令，传递给活动编辑器
         auto activeEditor = workspace_->getActiveEditor();

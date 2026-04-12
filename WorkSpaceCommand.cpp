@@ -1,17 +1,27 @@
 #include "WorkSpaceCommand.h"
+#include "WorkSpace.h"
 #include <iostream>
 
 // LoadCommand实现
-LoadCommand::LoadCommand(const std::string& fileName) : fileName_(fileName) {}
+LoadCommand::LoadCommand(const std::string& fileName) : fileName_(fileName), wasOpen_(false) {}
 
 void LoadCommand::execute() {
-    std::cout << "LoadCommand: Loading file '" << fileName_ << "'" << std::endl;
-    // TODO: 实际的文件加载逻辑
+    if (!workspace_) {
+        throw std::runtime_error("LoadCommand: No workspace associated");
+    }
+    wasOpen_ = workspace_->isFileOpen(fileName_);
+    workspace_->loadFile(fileName_);
 }
 
 void LoadCommand::undo() {
-    std::cout << "LoadCommand: Undo loading file '" << fileName_ << "'" << std::endl;
-    // TODO: 实际的撤销逻辑
+    if (!workspace_) {
+        throw std::runtime_error("LoadCommand: No workspace associated");
+    }
+    // 如果文件之前未打开，则关闭它
+    if (!wasOpen_ && workspace_->isFileOpen(fileName_)) {
+        workspace_->closeFile(fileName_);
+    }
+    // 如果文件之前已打开，我们无法恢复到之前的内容，所以什么都不做
 }
 
 bool LoadCommand::isReadOnly() const {
@@ -22,19 +32,30 @@ bool LoadCommand::isReadOnly() const {
 SaveCommand::SaveCommand(const std::string& target) : target_(target) {}
 
 void SaveCommand::execute() {
-    if (target_.empty()) {
-        std::cout << "SaveCommand: Saving all files" << std::endl;
-    } else if (target_ == "all") {
-        std::cout << "SaveCommand: Saving all files" << std::endl;
-    } else {
-        std::cout << "SaveCommand: Saving file '" << target_ << "'" << std::endl;
+    if (!workspace_) {
+        throw std::runtime_error("SaveCommand: No workspace associated");
     }
-    // TODO: 实际的文件保存逻辑
+
+    if (target_.empty()) {
+        // 保存当前活动文件
+        const std::string& activeFile = workspace_->getActiveFileName();
+        if (activeFile.empty()) {
+            throw std::runtime_error("SaveCommand: No active file to save");
+        }
+        workspace_->saveFile(activeFile);
+    } else if (target_ == "all") {
+        // 保存所有文件
+        workspace_->saveAllFiles();
+    } else {
+        // 保存指定文件
+        workspace_->saveFile(target_);
+    }
 }
 
 void SaveCommand::undo() {
-    std::cout << "SaveCommand: Undo saving" << std::endl;
-    // TODO: 实际的撤销逻辑（可能需要恢复到保存前的状态）
+    // 保存操作的撤销通常无法实现，因为文件系统状态已改变
+    // 可以留空或抛出异常
+    throw std::runtime_error("SaveCommand undo not supported");
 }
 
 bool SaveCommand::isReadOnly() const {
@@ -43,20 +64,25 @@ bool SaveCommand::isReadOnly() const {
 
 // InitCommand实现
 InitCommand::InitCommand(const std::string& fileName, bool withLog)
-    : fileName_(fileName), withLog_(withLog) {}
+    : fileName_(fileName), withLog_(withLog), wasOpen_(false) {}
 
 void InitCommand::execute() {
-    std::cout << "InitCommand: Initializing buffer for file '" << fileName_ << "'";
-    if (withLog_) {
-        std::cout << " with log enabled";
+    if (!workspace_) {
+        throw std::runtime_error("InitCommand: No workspace associated");
     }
-    std::cout << std::endl;
-    // TODO: 实际的缓冲区初始化逻辑
+    wasOpen_ = workspace_->isFileOpen(fileName_);
+    workspace_->initFile(fileName_, withLog_);
 }
 
 void InitCommand::undo() {
-    std::cout << "InitCommand: Undo initialization of file '" << fileName_ << "'" << std::endl;
-    // TODO: 实际的撤销逻辑
+    if (!workspace_) {
+        throw std::runtime_error("InitCommand: No workspace associated");
+    }
+    // 如果文件之前未打开，则关闭它
+    if (!wasOpen_ && workspace_->isFileOpen(fileName_)) {
+        workspace_->closeFile(fileName_);
+    }
+    // 如果文件之前已打开，我们无法恢复到之前的内容，所以什么都不做
 }
 
 bool InitCommand::isReadOnly() const {
@@ -67,17 +93,39 @@ bool InitCommand::isReadOnly() const {
 CloseCommand::CloseCommand(const std::string& fileName) : fileName_(fileName) {}
 
 void CloseCommand::execute() {
-    if (fileName_.empty()) {
-        std::cout << "CloseCommand: Closing active file" << std::endl;
-    } else {
-        std::cout << "CloseCommand: Closing file '" << fileName_ << "'" << std::endl;
+    if (!workspace_) {
+        throw std::runtime_error("CloseCommand: No workspace associated");
     }
-    // TODO: 实际的文件关闭逻辑
+
+    std::string targetFile = fileName_;
+    if (targetFile.empty()) {
+        // 关闭当前活动文件
+        targetFile = workspace_->getActiveFileName();
+        if (targetFile.empty()) {
+            throw std::runtime_error("CloseCommand: No active file to close");
+        }
+    }
+
+    // 检查文件是否已打开
+    if (!workspace_->isFileOpen(targetFile)) {
+        throw std::runtime_error("CloseCommand: File not open: " + targetFile);
+    }
+
+    // 检查文件是否已修改
+    if (workspace_->isFileModified(targetFile)) {
+        // 根据要求，应该提示用户保存
+        // 由于无法交互，我们抛出异常，要求用户先保存
+        throw std::runtime_error("CloseCommand: File '" + targetFile + "' has been modified. Please save before closing.");
+    }
+
+    // 关闭文件
+    workspace_->closeFile(targetFile);
 }
 
 void CloseCommand::undo() {
-    std::cout << "CloseCommand: Undo closing file" << std::endl;
-    // TODO: 实际的撤销逻辑（重新打开文件）
+    // 关闭操作的撤销需要重新打开文件，但文件内容可能已丢失
+    // 暂时不支持撤销关闭操作
+    throw std::runtime_error("CloseCommand undo not supported");
 }
 
 bool CloseCommand::isReadOnly() const {
@@ -88,13 +136,32 @@ bool CloseCommand::isReadOnly() const {
 EditCommand::EditCommand(const std::string& fileName) : fileName_(fileName) {}
 
 void EditCommand::execute() {
-    std::cout << "EditCommand: Switching to file '" << fileName_ << "'" << std::endl;
-    // TODO: 实际的活动文件切换逻辑
+    if (!workspace_) {
+        throw std::runtime_error("EditCommand: No workspace associated");
+    }
+
+    // 检查文件是否已打开
+    if (!workspace_->isFileOpen(fileName_)) {
+        throw std::runtime_error("文件未打开: " + fileName_);
+    }
+
+    // 记录之前的活动文件
+    previousActiveFile_ = workspace_->getActiveFileName();
+
+    // 切换活动文件
+    workspace_->setActiveFile(fileName_);
 }
 
 void EditCommand::undo() {
-    std::cout << "EditCommand: Undo switching to file '" << fileName_ << "'" << std::endl;
-    // TODO: 实际的撤销逻辑（切换回之前的活动文件）
+    if (!workspace_) {
+        throw std::runtime_error("EditCommand: No workspace associated");
+    }
+
+    // 切换回之前的活动文件（如果仍然打开）
+    if (!previousActiveFile_.empty() && workspace_->isFileOpen(previousActiveFile_)) {
+        workspace_->setActiveFile(previousActiveFile_);
+    }
+    // 如果之前的活动文件已关闭，则什么都不做（保持当前活动文件）
 }
 
 bool EditCommand::isReadOnly() const {

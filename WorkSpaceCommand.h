@@ -4,14 +4,20 @@
 #include "Command.h"
 #include <string>
 
+// 前向声明
+class WorkSpace;
+
 // WorkSpaceCommand基类：所有工作区命令的基类
 // 派生自Command，用于区分工作区命令和编辑器命令
 class WorkSpaceCommand : public Command {
 public:
     virtual ~WorkSpaceCommand() = default;
 
-    // 可以添加工作区命令特有的方法或属性
-    // 例如：获取关联的工作区
+    // 设置关联的工作区
+    virtual void setWorkSpace(WorkSpace* workspace) { workspace_ = workspace; }
+
+protected:
+    WorkSpace* workspace_ = nullptr; // 关联的工作区实例
 };
 
 // 加载文件命令
@@ -23,6 +29,7 @@ public:
     bool isReadOnly() const override;
 private:
     std::string fileName_;
+    bool wasOpen_ = false; // 执行前文件是否已打开
 };
 
 // 保存文件命令
@@ -46,6 +53,7 @@ public:
 private:
     std::string fileName_;
     bool withLog_;
+    bool wasOpen_ = false; // 执行前文件是否已打开
 };
 
 // 关闭文件命令
@@ -68,6 +76,7 @@ public:
     bool isReadOnly() const override;
 private:
     std::string fileName_;
+    std::string previousActiveFile_; // 执行前的活动文件
 };
 
 // 显示文件列表命令

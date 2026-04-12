@@ -52,6 +52,12 @@ public:
     // 检查是否可以Redo
     bool canRedo() const;
 
+    // 设置行内容（用于文件加载）
+    void setLines(const std::vector<std::string>& newLines);
+
+    // 清空编辑器内容
+    void clear();
+
     // 其他方法将在后续实现...
 
 private:

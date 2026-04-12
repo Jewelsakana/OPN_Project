@@ -68,36 +68,41 @@
   - 使用`std::map<std::string, std::shared_ptr<Editor>>`管理打开的文件
   - 维护当前活动文件、文件修改状态、日志开关状态
   - 提供文件打开、关闭、切换活动文件等管理功能
+  - 新增文件加载、保存功能：`loadFile()`、`saveFile()`、`saveAllFiles()`、`initFile()`，支持从磁盘读取文件内容、保存到磁盘、创建新缓冲区
 - **WorkspaceMemento类** (`WorkSpace.h/.cpp`)：备忘录模式实现
   - 保存打开文件列表、活动文件名、文件修改状态、日志开关状态
   - 支持工作区状态的保存和恢复
 - **观察者模式集成**：在WorkSpace中维护观察者列表
   - 提供`attach()`、`detach()`、`notify()`方法
   - 支持事件通知机制（待具体实现）
-- **WorkSpaceCommand基类及具体命令** (`WorkSpaceCommand.h/.cpp`)：所有工作区命令的实现
-  - `LoadCommand`：加载文件命令
-  - `SaveCommand`：保存文件命令
-  - `InitCommand`：创建新缓冲区命令（支持with-log选项）
-  - `CloseCommand`：关闭文件命令
-  - `EditCommand`：切换活动文件命令
-  - `EditorListCommand`：显示文件列表命令
-  - `DirTreeCommand`：显示目录树命令
-  - `UndoCommand`：撤销命令
-  - `RedoCommand`：重做命令
-  - `ExitCommand`：退出程序命令
-  - 所有命令提供占位实现，`execute()`和`undo()`方法已定义
+- **WorkSpaceCommand基类及具体命令** (`WorkSpaceCommand.h/.cpp`)：所有工作区命令的实现（已全部实现具体功能）
+  - `LoadCommand`：加载文件命令。如果文件存在则读取内容并创建编辑器，如果文件不存在则创建新文件并标记为已修改。自动设置为活动文件。
+  - `SaveCommand`：保存文件命令。支持保存当前活动文件、指定文件或所有打开的文件。保存成功则清除修改标记，失败则抛出异常。
+  - `InitCommand`：创建新缓冲区命令（支持with-log选项）。创建未保存的新缓冲文件，可选在第一行添加"# log"以启用日志。标记为已修改并设置为活动文件。
+  - `CloseCommand`：关闭文件命令。关闭当前活动文件或指定文件。如果文件已修改则抛出异常提示保存（根据design-7要求）。关闭后自动切换到其他打开的文件。
+  - `EditCommand`：切换活动文件命令。文件必须已在工作区内打开，否则抛出异常"文件未打开"。
+  - `EditorListCommand`：显示文件列表命令（占位实现）。
+  - `DirTreeCommand`：显示目录树命令（占位实现）。
+  - `UndoCommand`：撤销命令（占位实现）。
+  - `RedoCommand`：重做命令（占位实现）。
+  - `ExitCommand`：退出程序命令（占位实现）。
+  - 所有命令均支持撤销操作（部分命令撤销逻辑受限）。
 - **CommandParser类** (`CommandParser.h/.cpp`)：完整的命令解析器实现
   - 支持正则表达式解析复杂命令格式（如`insert <line:col> "text"`）
   - 完整的异常处理体系：`CommandParseException`、`CommandFormatException`、`ArgumentParseException`、`UnknownCommandException`
   - 支持转义字符处理：`\n`、`\t`、`\r`、`\\`、`\"`
   - 命令不区分大小写（自动转换为小写处理）
   - 智能参数分割，正确处理带空格和引号的文本参数
-  - 支持两类命令解析：
-    - 工作区命令：返回具体的`WorkSpaceCommand`派生类对象
-    - 编辑器命令：格式验证通过，返回`nullptr`（需要绑定到具体Editor实例）
-- **命令路由**：WorkSpace根据命令类型路由到活动编辑器或自身处理
-  - 使用`dynamic_cast`识别`WorkSpaceCommand`派生类
-  - 工作区命令由WorkSpace处理，编辑器命令传递给活动编辑器
+  - 返回轻量级`ParsedCommand`对象，包含命令类型和参数信息
+- **CommandController类** (`CommandController.h/.cpp`)：命令工厂和路由器（职责分离）
+  - 持有WorkSpace引用，负责命令的创建、分发和执行
+  - 从`ParsedCommand`创建具体命令对象
+  - 根据命令类型进行路由分发：
+    - 工作区命令：直接执行`cmd->execute()`
+    - 编辑器命令：调用`activeEditor->executeCommand(std::move(cmd))`
+  - 自动从WorkSpace获取活动编辑器及其TextEngine和lines引用
+  - 捕获并处理所有解析和执行过程中的异常
+  - 实现了命令创建与工作区管理的解耦，提高模块内聚性
 
 ## 关键技术特性
 
@@ -157,6 +162,20 @@
   - 修改状态管理
   - 只读命令不影响修改状态
 
+- **工作区模块测试** (`test_workspace.cpp`)：验证WorkSpace基本功能和CommandController集成
+  - 基本功能测试：文件打开、关闭、活动文件切换
+  - 备忘录模式测试：状态保存和恢复
+  - 观察者模式测试：观察者注册和注销
+  - CommandController测试：命令创建、分发和执行
+  - 新增工作区命令测试：LoadCommand、SaveCommand、InitCommand、CloseCommand、EditCommand的完整功能测试，包括文件加载、保存、创建缓冲区、关闭文件、切换活动文件等场景
+
+- **CommandParser测试** (`test_commandparser.cpp`)：验证命令解析器的完整功能
+  - 工作区命令解析测试（14种命令类型）
+  - 编辑器命令格式验证（6种命令格式）
+  - 转义字符处理测试
+  - 错误处理和异常抛出测试
+  - 大小写不敏感性测试
+
 ## 解决的问题
 
 ### 技术难点解决
@@ -166,12 +185,16 @@
 4. **边界条件和异常处理**：完整的异常体系，确保程序健壮性
 5. **命令解析器的复杂参数处理**：使用正则表达式解析`<line:col>`格式，智能分割带空格和引号的命令行参数
 6. **转义字符支持**：完整处理`\n`、`\t`、`\r`、`\\`、`\"`等转义序列
-7. **命令路由机制**：通过`dynamic_cast`识别命令类型，自动路由到工作区或编辑器处理
+7. **命令路由机制**：通过CommandController统一管理命令的创建和分发，实现职责分离
+8. **职责分离设计**：将命令解析、创建、执行职责分离到不同模块，提高代码可维护性
+9. **文件加载和保存的健壮性**：实现完整的文件I/O异常处理，支持文件不存在时自动创建新文件，文件读取时按行加载，保存时正确处理换行符
+10. **工作区命令与WorkSpace的交互**：通过CommandController设置Workspace指针，使工作区命令能够访问WorkSpace实例，实现命令与工作区状态的交互
 
 ### 设计模式应用
 1. **命令模式**：实现可撤销的操作序列
 2. **观察者模式**：为事件监听提供框架（日志待实现）
 3. **异常处理模式**：分层异常体系，提高代码健壮性
+4. **职责分离模式**：通过CommandController将命令创建、解析、执行职责分离，提高模块内聚性
 
 ## 代码结构
 ```
@@ -191,7 +214,8 @@ Project1/
 ├── 工作区模块
 │   ├── WorkSpace.h/.cpp       # 工作区管理
 │   ├── WorkSpaceCommand.h     # 工作区命令基类
-│   └── CommandParser.h/.cpp   # 命令解析器
+│   ├── CommandParser.h/.cpp   # 命令解析器
+│   └── CommandController.h/.cpp # 命令控制器（工厂和路由器）
 └── 测试文件
     ├── test_engine.cpp        # TextEngine单元测试
     ├── test_commands.cpp      # 命令系统测试
@@ -251,6 +275,7 @@ editor.executeCommand(std::move(showCmd));
 - ✅ 模块化、可扩展的架构设计
 - ✅ 全面的测试覆盖
 - ✅ 工作区管理模块
+- ✅ 职责分离的命令控制器设计
 - ✅ 符合面向对象设计原则
 
 该框架为构建功能完整的命令行文本编辑器奠定了坚实的基础，所有核心功能均已实现并通过测试验证。

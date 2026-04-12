@@ -153,11 +153,10 @@ void test_command_controller() {
         workspace.setActiveFile("editor_test.txt");
 
         // 测试创建append命令
-        auto parsed = ParsedCommand{
-            .type = CommandType::EditorCommand,
-            .editorType = EditorCommandType::Append,
-            .text = "Hello World"
-        };
+        ParsedCommand parsed;
+        parsed.type = CommandType::EditorCommand;
+        parsed.editorType = EditorCommandType::Append;
+        parsed.text = "Hello World";
 
         auto cmd = controller.createCommandFromParsed(parsed);
         assert(cmd != nullptr);
@@ -170,6 +169,96 @@ void test_command_controller() {
     std::cout << "All CommandController tests passed!" << std::endl << std::endl;
 }
 
+void test_workspace_commands() {
+    std::cout << "Testing WorkSpace commands (Load, Save, Init, Close, Edit)..." << std::endl;
+
+    WorkSpace workspace;
+    CommandController controller(&workspace);
+
+    // 测试LoadCommand：加载不存在的文件（应创建新文件）
+    try {
+        controller.parseAndExecuteCommand("load newfile.txt");
+        assert(workspace.isFileOpen("newfile.txt"));
+        assert(workspace.isFileModified("newfile.txt")); // 新文件标记为已修改
+        std::cout << "  ✓ LoadCommand with non-existent file - OK" << std::endl;
+    } catch (const std::exception& e) {
+        std::cout << "  ✗ LoadCommand failed: " << e.what() << std::endl;
+        throw;
+    }
+
+    // 测试EditCommand：切换到加载的文件
+    try {
+        controller.parseAndExecuteCommand("edit newfile.txt");
+        assert(workspace.getActiveFileName() == "newfile.txt");
+        std::cout << "  ✓ EditCommand - OK" << std::endl;
+    } catch (const std::exception& e) {
+        std::cout << "  ✗ EditCommand failed: " << e.what() << std::endl;
+        throw;
+    }
+
+    // 测试InitCommand：创建新缓冲区
+    try {
+        controller.parseAndExecuteCommand("init newbuffer.txt with-log");
+        assert(workspace.isFileOpen("newbuffer.txt"));
+        assert(workspace.getActiveFileName() == "newbuffer.txt");
+        // 检查是否包含 "# log" 行
+        auto editor = workspace.getEditor("newbuffer.txt");
+        auto textEditor = std::dynamic_pointer_cast<TextEditor>(editor);
+        assert(textEditor != nullptr);
+        const auto& lines = textEditor->getLines();
+        assert(lines.size() >= 1);
+        if (lines.size() > 0 && lines[0] == "# log") {
+            std::cout << "  ✓ InitCommand with-log - OK" << std::endl;
+        } else {
+            std::cout << "  ✗ InitCommand with-log failed: first line is not '# log'" << std::endl;
+            throw std::runtime_error("InitCommand with-log failed");
+        }
+    } catch (const std::exception& e) {
+        std::cout << "  ✗ InitCommand failed: " << e.what() << std::endl;
+        throw;
+    }
+
+    // 测试SaveCommand：保存文件（需要先有内容）
+    // 在newfile.txt中插入一些文本
+    try {
+        controller.parseAndExecuteCommand("insert 1:1 \"Hello\"");
+        // 保存文件
+        controller.parseAndExecuteCommand("save newfile.txt");
+        // 保存后修改标记应清除
+        assert(!workspace.isFileModified("newfile.txt"));
+        std::cout << "  ✓ SaveCommand - OK" << std::endl;
+    } catch (const std::exception& e) {
+        std::cout << "  ✗ SaveCommand failed: " << e.what() << std::endl;
+        throw;
+    }
+
+    // 测试CloseCommand：关闭未修改的文件
+    try {
+        controller.parseAndExecuteCommand("close newfile.txt");
+        assert(!workspace.isFileOpen("newfile.txt"));
+        std::cout << "  ✓ CloseCommand on unmodified file - OK" << std::endl;
+    } catch (const std::exception& e) {
+        std::cout << "  ✗ CloseCommand failed: " << e.what() << std::endl;
+        throw;
+    }
+
+    // 测试CloseCommand：关闭已修改的文件（应抛出异常）
+    try {
+        // 修改newbuffer.txt
+        controller.parseAndExecuteCommand("edit newbuffer.txt");
+        controller.parseAndExecuteCommand("insert 1:1 \"Modified\"");
+        controller.parseAndExecuteCommand("close newbuffer.txt");
+        // 如果执行到这里，说明没有抛出异常，测试失败
+        std::cout << "  ✗ CloseCommand on modified file should throw" << std::endl;
+        throw std::runtime_error("CloseCommand should throw on modified file");
+    } catch (const std::exception& e) {
+        // 期望抛出异常
+        std::cout << "  ✓ CloseCommand on modified file throws as expected: " << e.what() << std::endl;
+    }
+
+    std::cout << "All WorkSpace command tests passed!" << std::endl << std::endl;
+}
+
 int main() {
     std::cout << "Starting WorkSpace tests..." << std::endl << std::endl;
 
@@ -177,6 +266,7 @@ int main() {
         test_basic_functionality();
         test_observer_attachment();
         test_command_controller();
+        test_workspace_commands();
 
         std::cout << "All WorkSpace tests passed!" << std::endl;
         return 0;

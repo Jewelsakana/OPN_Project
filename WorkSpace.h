@@ -9,6 +9,7 @@
 #include "Observe.h"
 #include "Event.h"
 #include "Editor.h"
+#include "CommandParser.h"
 
 // 前向声明
 // class Editor; // 已经包含
@@ -86,8 +87,8 @@ public:
     void detach(std::shared_ptr<Observe> observer);
     void notify(const Event& event);
 
-    // 命令处理
-    void executeCommand(std::unique_ptr<Command> command);
+    // 命令处理相关职责已转移到CommandController类中
+    // 使用CommandController进行命令的创建、分发和执行
 
 private:
     std::map<std::string, std::shared_ptr<Editor>> openFiles_;  // 打开的文件映射

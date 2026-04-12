@@ -74,11 +74,27 @@
 - **观察者模式集成**：在WorkSpace中维护观察者列表
   - 提供`attach()`、`detach()`、`notify()`方法
   - 支持事件通知机制（待具体实现）
-- **WorkSpaceCommand基类** (`WorkSpaceCommand.h`)：所有工作区命令的基类
-  - 派生自`Command`接口，用于区分工作区命令和编辑器命令
-- **CommandParser类** (`CommandParser.h/.cpp`)：命令解析器框架
-  - 定义`parse()`方法，将原始字符串解析为Command对象
-  - 具体解析逻辑待后续实现
+- **WorkSpaceCommand基类及具体命令** (`WorkSpaceCommand.h/.cpp`)：所有工作区命令的实现
+  - `LoadCommand`：加载文件命令
+  - `SaveCommand`：保存文件命令
+  - `InitCommand`：创建新缓冲区命令（支持with-log选项）
+  - `CloseCommand`：关闭文件命令
+  - `EditCommand`：切换活动文件命令
+  - `EditorListCommand`：显示文件列表命令
+  - `DirTreeCommand`：显示目录树命令
+  - `UndoCommand`：撤销命令
+  - `RedoCommand`：重做命令
+  - `ExitCommand`：退出程序命令
+  - 所有命令提供占位实现，`execute()`和`undo()`方法已定义
+- **CommandParser类** (`CommandParser.h/.cpp`)：完整的命令解析器实现
+  - 支持正则表达式解析复杂命令格式（如`insert <line:col> "text"`）
+  - 完整的异常处理体系：`CommandParseException`、`CommandFormatException`、`ArgumentParseException`、`UnknownCommandException`
+  - 支持转义字符处理：`\n`、`\t`、`\r`、`\\`、`\"`
+  - 命令不区分大小写（自动转换为小写处理）
+  - 智能参数分割，正确处理带空格和引号的文本参数
+  - 支持两类命令解析：
+    - 工作区命令：返回具体的`WorkSpaceCommand`派生类对象
+    - 编辑器命令：格式验证通过，返回`nullptr`（需要绑定到具体Editor实例）
 - **命令路由**：WorkSpace根据命令类型路由到活动编辑器或自身处理
   - 使用`dynamic_cast`识别`WorkSpaceCommand`派生类
   - 工作区命令由WorkSpace处理，编辑器命令传递给活动编辑器
@@ -148,6 +164,9 @@
 2. **命令执行失败的状态一致性**：异常抛出时不压入Undo栈，保持状态一致性
 3. **只读命令不影响撤销历史**：通过`isReadOnly()`方法识别，CommandManager特殊处理
 4. **边界条件和异常处理**：完整的异常体系，确保程序健壮性
+5. **命令解析器的复杂参数处理**：使用正则表达式解析`<line:col>`格式，智能分割带空格和引号的命令行参数
+6. **转义字符支持**：完整处理`\n`、`\t`、`\r`、`\\`、`\"`等转义序列
+7. **命令路由机制**：通过`dynamic_cast`识别命令类型，自动路由到工作区或编辑器处理
 
 ### 设计模式应用
 1. **命令模式**：实现可撤销的操作序列
@@ -177,8 +196,9 @@ Project1/
     ├── test_engine.cpp        # TextEngine单元测试
     ├── test_commands.cpp      # 命令系统测试
     ├── test_texteditor.cpp    # TextEditor集成测试
-    ├── test_insert_multiline.cpp  # 多行插入专项测试
     ├── test_workspace.cpp        # 工作区模块测试
+    ├── test_commandparser.cpp    # CommandParser解析测试
+    ├── test_insert_multiline.cpp  # 多行插入专项测试
     └── test_insert_edge_cases.cpp # 边缘情况测试
 ```
 

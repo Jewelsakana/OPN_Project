@@ -1,6 +1,8 @@
 #include "WorkSpace.h"
 #include "TextEditor.h"
+#include "TextEngine.h"
 #include "WorkSpaceCommand.h"
+#include "TextCommands.h"
 #include <algorithm>
 #include <stdexcept>
 
@@ -46,6 +48,10 @@ void WorkSpace::openFile(const std::string& fileName) {
         // 创建新的TextEditor实例（暂时固定为TextEditor）
         // TODO: 可能需要根据文件类型创建不同的Editor
         auto editor = std::make_shared<TextEditor>();
+        // 设置TextEngine
+        auto textEngine = std::make_shared<TextEngine>();
+        editor->setTextEngine(textEngine);
+
         openFiles_[fileName] = editor;
         fileModifiedStates_[fileName] = false;
 
@@ -175,6 +181,9 @@ void WorkSpace::restoreFromMemento(const WorkspaceMemento& memento) {
     for (const auto& fileName : openFiles) {
         // 创建新的Editor实例（暂时固定为TextEditor）
         auto editor = std::make_shared<TextEditor>();
+        // 设置TextEngine
+        auto textEngine = std::make_shared<TextEngine>();
+        editor->setTextEngine(textEngine);
         openFiles_[fileName] = editor;
     }
 
@@ -215,24 +224,5 @@ void WorkSpace::notify(const Event& event) {
 void WorkSpace::notifyObservers(const Event& event) {
     for (const auto& observer : observers_) {
         observer->update(event);
-    }
-}
-
-void WorkSpace::executeCommand(std::unique_ptr<Command> command) {
-    // 判断命令类型：是WorkSpaceCommand还是EditorCommand？
-    if (dynamic_cast<WorkSpaceCommand*>(command.get()) != nullptr) {
-        // 工作区命令，在当前WorkSpace中处理
-        // TODO: 具体处理逻辑暂不实现
-        // 目前只执行命令（但工作区命令需要实现execute方法）
-        command->execute();
-    } else {
-        // 编辑器命令，传递给活动编辑器
-        auto activeEditor = getActiveEditor();
-        if (activeEditor) {
-            activeEditor->executeCommand(std::move(command));
-        } else {
-            // 没有活动编辑器，抛出异常
-            throw std::runtime_error("No active editor to execute command");
-        }
     }
 }

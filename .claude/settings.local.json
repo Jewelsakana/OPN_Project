@@ -7,7 +7,13 @@
       "Bash(./test_engine.exe)",
       "Bash(g++ -std=c++11 -c TextCommands.cpp -o TextCommands.o)",
       "Bash(g++ -std=c++11 -c CommandManager.cpp -o CommandManager.o)",
-      "Bash(ls *.o *.exe)"
+      "Bash(ls *.o *.exe)",
+      "Bash(g++ -std=c++11 -c WorkSpaceCommand.cpp -o WorkSpaceCommand.o)",
+      "Bash(g++ -std=c++11 -c test_commandparser.cpp -o test_commandparser.o)",
+      "Bash(g++ -std=c++11 test_commandparser.o CommandParser.o WorkSpaceCommand.o -o test_commandparser.exe)",
+      "Bash(./test_commandparser.exe)",
+      "Bash(g++ -std=c++17 -o test_commandparser test_commandparser.cpp CommandParser.cpp)",
+      "Bash(./test_commandparser)"
     ],
     "additionalDirectories": [
       "C:\\Users\\wan'zhu\\Project1"

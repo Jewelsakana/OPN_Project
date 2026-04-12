@@ -2,7 +2,9 @@
   "permissions": {
     "allow": [
       "Bash(g++ -std=c++11 -c Event.cpp -o Event.o)",
-      "Bash(g++ -std=c++11 -c TextEngine.cpp -o TextEngine.o)"
+      "Bash(g++ -std=c++11 -c TextEngine.cpp -o TextEngine.o)",
+      "Bash(g++ -std=c++11 test_engine.cpp TextEngine.cpp -o test_engine.exe)",
+      "Bash(./test_engine.exe)"
     ]
   }
 }

@@ -36,7 +36,7 @@ public:
     // 其他方法将在后续实现...
 
 private:
-    std::vector<std::string> lines;    // 行数组，每个元素是一行文本
+    std::vector<std::string> lines={""};    // 行数组，每个元素是一行文本
     bool modified;                      // 修改状态标记
     std::shared_ptr<TextEngine> textEngine; // TextEngine用于逻辑计算
 };

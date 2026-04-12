@@ -63,6 +63,26 @@
   - 提供`undo()`、`redo()`、`canUndo()`、`canRedo()`方法
   - 命令执行成功时自动设置修改状态
 
+### 5. 工作区模块
+- **WorkSpace类** (`WorkSpace.h/.cpp`)：管理工作区状态
+  - 使用`std::map<std::string, std::shared_ptr<Editor>>`管理打开的文件
+  - 维护当前活动文件、文件修改状态、日志开关状态
+  - 提供文件打开、关闭、切换活动文件等管理功能
+- **WorkspaceMemento类** (`WorkSpace.h/.cpp`)：备忘录模式实现
+  - 保存打开文件列表、活动文件名、文件修改状态、日志开关状态
+  - 支持工作区状态的保存和恢复
+- **观察者模式集成**：在WorkSpace中维护观察者列表
+  - 提供`attach()`、`detach()`、`notify()`方法
+  - 支持事件通知机制（待具体实现）
+- **WorkSpaceCommand基类** (`WorkSpaceCommand.h`)：所有工作区命令的基类
+  - 派生自`Command`接口，用于区分工作区命令和编辑器命令
+- **CommandParser类** (`CommandParser.h/.cpp`)：命令解析器框架
+  - 定义`parse()`方法，将原始字符串解析为Command对象
+  - 具体解析逻辑待后续实现
+- **命令路由**：WorkSpace根据命令类型路由到活动编辑器或自身处理
+  - 使用`dynamic_cast`识别`WorkSpaceCommand`派生类
+  - 工作区命令由WorkSpace处理，编辑器命令传递给活动编辑器
+
 ## 关键技术特性
 
 ### 设计模式应用
@@ -149,11 +169,16 @@ Project1/
 ├── 命令系统
 │   ├── TextCommands.h/.cpp    # 所有命令子类实现
 │   └── （继承自Command接口）
+├── 工作区模块
+│   ├── WorkSpace.h/.cpp       # 工作区管理
+│   ├── WorkSpaceCommand.h     # 工作区命令基类
+│   └── CommandParser.h/.cpp   # 命令解析器
 └── 测试文件
     ├── test_engine.cpp        # TextEngine单元测试
     ├── test_commands.cpp      # 命令系统测试
     ├── test_texteditor.cpp    # TextEditor集成测试
     ├── test_insert_multiline.cpp  # 多行插入专项测试
+    ├── test_workspace.cpp        # 工作区模块测试
     └── test_insert_edge_cases.cpp # 边缘情况测试
 ```
 
@@ -194,7 +219,7 @@ editor.executeCommand(std::move(showCmd));
 1. **日志模块**：实现Observe接口的具体日志类，监听Event事件
 2. **状态持久化**：实现文件保存/加载功能
 3. **UI层**：实现命令行或图形用户界面
-4. **工作区管理**：支持同时打开多个文件
+4. **工作区管理（已完成）**：支持同时打开多个文件
 5. **更多文本操作**：复制、粘贴、查找、替换等命令
 6. **性能优化**：大数据量文本的优化处理
 
@@ -205,6 +230,7 @@ editor.executeCommand(std::move(showCmd));
 - ✅ 多行文本操作支持
 - ✅ 模块化、可扩展的架构设计
 - ✅ 全面的测试覆盖
+- ✅ 工作区管理模块
 - ✅ 符合面向对象设计原则
 
 该框架为构建功能完整的命令行文本编辑器奠定了坚实的基础，所有核心功能均已实现并通过测试验证。

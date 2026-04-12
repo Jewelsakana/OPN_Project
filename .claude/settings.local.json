@@ -6,7 +6,11 @@
       "Bash(g++ -std=c++11 test_engine.cpp TextEngine.cpp -o test_engine.exe)",
       "Bash(./test_engine.exe)",
       "Bash(g++ -std=c++11 -c TextCommands.cpp -o TextCommands.o)",
-      "Bash(g++ -std=c++11 -c CommandManager.cpp -o CommandManager.o)"
+      "Bash(g++ -std=c++11 -c CommandManager.cpp -o CommandManager.o)",
+      "Bash(ls *.o *.exe)"
+    ],
+    "additionalDirectories": [
+      "C:\\Users\\wan'zhu\\Project1"
     ]
   }
 }

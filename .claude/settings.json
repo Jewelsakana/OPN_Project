@@ -1,0 +1,9 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(g++ -std=c++11 test_commands.cpp TextEngine.o TextCommands.o CommandManager.o -o test_commands.exe)",
+      "Bash(g++ -std=c++14 test_commands.cpp TextEngine.cpp TextCommands.cpp CommandManager.cpp -o test_commands.exe)",
+      "Bash(./test_commands.exe)"
+    ]
+  }
+}

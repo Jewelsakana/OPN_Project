@@ -11,6 +11,10 @@ public:
 
     // 撤销命令
     virtual void undo() = 0;
+
+    // 判断命令是否为只读命令（默认返回false）
+    // 只读命令执行后不会进入Undo栈
+    virtual bool isReadOnly() const { return false; }
 };
 
 #endif // COMMAND_H

@@ -14,13 +14,17 @@ void CommandManager::executeCommand(std::unique_ptr<Command> command) {
         // 执行命令
         command->execute();
 
-        // 执行成功，压入undo栈
-        undoStack.push(std::move(command));
+        // 检查命令是否为只读命令
+        if (!command->isReadOnly()) {
+            // 非只读命令，压入undo栈
+            undoStack.push(std::move(command));
 
-        // 清空redo栈（因为新的命令分支）
-        while (!redoStack.empty()) {
-            redoStack.pop();
+            // 清空redo栈（因为新的命令分支）
+            while (!redoStack.empty()) {
+                redoStack.pop();
+            }
         }
+        // 只读命令不压入undo栈，也不需要清空redo栈
     } catch (const TextEngineException& e) {
         // 捕获TextEngine异常，不压入undo栈
         // 异常会向上层传播，由UI层处理

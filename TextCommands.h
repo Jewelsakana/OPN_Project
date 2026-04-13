@@ -3,6 +3,7 @@
 
 #include "Command.h"
 #include "TextEngine.h"
+#include "OutputService.h"
 #include <vector>
 #include <string>
 #include <memory>
@@ -74,6 +75,7 @@ private:
 class ShowCommand : public TextCommand {
 public:
     ShowCommand(const std::vector<std::string>& lines, TextEngine* engine,
+                OutputService* outputService,
                 int startLine = 0, int endLine = -1);
 
     void execute() override;
@@ -87,6 +89,7 @@ public:
 
 private:
     const std::vector<std::string>& constLines; // 常量引用，只读
+    OutputService* outputService; // 输出服务
     int startLine;
     int endLine;
     std::string result;     // 显示结果

@@ -3,6 +3,7 @@
 
 #include "Model.h"
 #include "Editor.h"
+#include "DataStructures.h"
 #include <string>
 #include <vector>
 #include <map>
@@ -27,6 +28,7 @@ public:
     void openFile(const std::string& fileName, std::shared_ptr<Editor> editor);
     void closeFile(const std::string& fileName);
     std::vector<std::string> getOpenFiles() const;
+    std::vector<FileInfo> getFileInfoList() const;
 
     // 获取编辑器
     std::shared_ptr<Editor> getEditor(const std::string& fileName) const;

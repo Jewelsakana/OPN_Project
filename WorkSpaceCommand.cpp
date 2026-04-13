@@ -1,6 +1,7 @@
 #include "WorkSpaceCommand.h"
 #include "WorkSpace.h"
 #include "TextEditor.h"
+#include "OutputService.h"
 #include <iostream>
 #include <vector>
 #include <algorithm>
@@ -193,32 +194,11 @@ void EditorListCommand::execute() {
         throw std::runtime_error("EditorListCommand: No workspace associated");
     }
 
-    const std::string& activeFileName = workspace_->getActiveFileName();
-    auto openFiles = workspace_->getOpenFiles();
+    // 获取结构化文件信息列表
+    auto fileInfos = workspace_->getFileInfoList();
 
-    if (openFiles.empty()) {
-        std::cout << "No files open in workspace" << std::endl;
-        return;
-    }
-
-    for (const auto& fileName : openFiles) {
-        // 标记活动文件
-        if (fileName == activeFileName) {
-            std::cout << "* ";
-        } else {
-            std::cout << "  ";
-        }
-
-        // 输出文件名
-        std::cout << fileName;
-
-        // 标记已修改的文件
-        if (workspace_->isFileModified(fileName)) {
-            std::cout << " [modified]";
-        }
-
-        std::cout << std::endl;
-    }
+    // 通过OutputService输出
+    workspace_->getOutputService().outputList(fileInfos);
 }
 
 void EditorListCommand::undo() {
@@ -238,9 +218,11 @@ void DirTreeCommand::execute() {
         throw std::runtime_error("DirTreeCommand: No workspace associated");
     }
 
-    // 使用WorkSpace的getDirectoryTree方法，它会委托给FileSystemService
-    std::string tree = workspace_->getDirectoryTree(path_);
-    std::cout << tree;
+    // 获取结构化目录树
+    auto treeRoot = workspace_->getDirectoryTreeStructure(path_);
+
+    // 通过OutputService输出
+    workspace_->getOutputService().outputTree(*treeRoot);
 }
 
 
@@ -332,6 +314,8 @@ void ExitCommand::execute() {
         throw std::runtime_error("ExitCommand: No workspace associated");
     }
 
+    auto& outputService = workspace_->getOutputService();
+
     // 检查是否有未保存的文件
     std::vector<std::string> unsavedFiles;
     auto openFiles = workspace_->getOpenFiles();
@@ -347,15 +331,16 @@ void ExitCommand::execute() {
             errorMsg += "  " + fileName + "\n";
         }
         errorMsg += "Please save them before exiting.";
+
+        // 使用OutputService输出错误信息
+        outputService.outputError(errorMsg);
         throw std::runtime_error(errorMsg);
     }
 
     // 所有文件已保存，可以退出
     // 注意：实际退出程序应由上层调用者处理
     // 这里只是标记可以退出
-    std::cout << "ExitCommand: All files saved. Ready to exit." << std::endl;
-    // 可以设置一个退出标志，或者抛出一个特殊异常
-    // 暂时只打印消息
+    outputService.outputLine("ExitCommand: All files saved. Ready to exit.");
 }
 
 void ExitCommand::undo() {

@@ -166,16 +166,24 @@ void AppendCommand::undo() {
 
 // ShowCommand实现
 ShowCommand::ShowCommand(const std::vector<std::string>& lines, TextEngine* engine,
+                         OutputService* outputService,
                          int startLine, int endLine)
     : TextCommand(const_cast<std::vector<std::string>&>(lines), engine)
     , constLines(lines)
+    , outputService(outputService)
     , startLine(startLine)
     , endLine(endLine) {
+    if (!outputService) {
+        throw std::invalid_argument("ShowCommand: OutputService cannot be null");
+    }
 }
 
 void ShowCommand::execute() {
     // 调用TextEngine显示文本
     result = textEngine->show(constLines, startLine, endLine);
+
+    // 使用OutputService输出结果
+    outputService->outputText(result);
 }
 
 void ShowCommand::undo() {

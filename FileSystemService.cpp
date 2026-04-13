@@ -226,3 +226,85 @@ void FileSystemService::handleException(const std::exception& e) const {
 bool FileSystemService::isFilesystemAvailable() const {
     return HAS_FILESYSTEM == 1;
 }
+
+std::shared_ptr<TreeNode> FileSystemService::getDirectoryTreeStructure(const std::string& path) {
+    return safeExecute([this, &path]() -> std::shared_ptr<TreeNode> {
+#if HAS_FILESYSTEM
+        fs::path dirPath;
+        if (path.empty()) {
+            dirPath = fs::current_path();
+        } else {
+            dirPath = fs::path(path);
+        }
+
+        // 检查路径是否存在
+        if (!fs::exists(dirPath)) {
+            throw std::runtime_error("目录不存在: " + dirPath.string());
+        }
+
+        // 检查是否为目录
+        if (!fs::is_directory(dirPath)) {
+            throw std::runtime_error("路径不是目录: " + dirPath.string());
+        }
+
+        // 构建结构化目录树
+        return buildDirectoryTreeStructure(dirPath.string());
+#else
+        throw std::runtime_error("Filesystem library not available. Cannot build directory tree structure.");
+#endif
+    });
+}
+
+std::shared_ptr<TreeNode> FileSystemService::buildDirectoryTreeStructure(const std::string& path) {
+#if HAS_FILESYSTEM
+    try {
+        // 创建当前节点
+        fs::path currentPath(path);
+        std::string name = currentPath.filename().string();
+        if (name.empty()) {
+            // 如果是根目录，使用路径本身作为名称
+            name = currentPath.string();
+        }
+
+        auto node = std::make_shared<TreeNode>(name, true); // 目录节点
+
+        // 收集子项
+        std::vector<fs::directory_entry> entries;
+        for (const auto& entry : fs::directory_iterator(path)) {
+            entries.push_back(entry);
+        }
+
+        // 排序：先目录后文件，按名称排序
+        std::sort(entries.begin(), entries.end(),
+            [](const fs::directory_entry& a, const fs::directory_entry& b) {
+                bool aIsDir = fs::is_directory(a.path());
+                bool bIsDir = fs::is_directory(b.path());
+                if (aIsDir != bIsDir) {
+                    return aIsDir > bIsDir; // 目录在前
+                }
+                return a.path().filename().string() < b.path().filename().string();
+            });
+
+        // 递归处理子项
+        for (const auto& entry : entries) {
+            std::string entryName = entry.path().filename().string();
+
+            if (fs::is_directory(entry.path())) {
+                // 递归处理子目录
+                auto childNode = buildDirectoryTreeStructure(entry.path().string());
+                node->children.push_back(childNode);
+            } else {
+                // 文件节点
+                auto fileNode = std::make_shared<TreeNode>(entryName, false);
+                node->children.push_back(fileNode);
+            }
+        }
+
+        return node;
+    } catch (const fs::filesystem_error& e) {
+        throw std::runtime_error("访问目录出错: " + std::string(e.what()));
+    }
+#else
+    return nullptr;
+#endif
+}

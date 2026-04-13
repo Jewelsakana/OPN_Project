@@ -62,6 +62,17 @@ std::vector<std::string> DocumentManager::getOpenFiles() const {
     return files;
 }
 
+std::vector<FileInfo> DocumentManager::getFileInfoList() const {
+    std::vector<FileInfo> fileInfos;
+    for (const auto& pair : openFiles_) {
+        const std::string& fileName = pair.first;
+        bool isActive = (fileName == activeFileName_);
+        bool isModified = isFileModified(fileName);
+        fileInfos.emplace_back(fileName, isActive, isModified);
+    }
+    return fileInfos;
+}
+
 std::shared_ptr<Editor> DocumentManager::getEditor(const std::string& fileName) const {
     auto it = openFiles_.find(fileName);
     if (it != openFiles_.end()) {

@@ -1,5 +1,6 @@
 #include "TextCommands.h"
 #include "CommandManager.h"
+#include "OutputService.h"
 #include <iostream>
 #include <cassert>
 #include <vector>
@@ -212,10 +213,11 @@ void testShowCommand() {
     TextEngine engine;
     std::vector<std::string> lines = {"Line1", "Line2", "Line3"};
     CommandManager manager;
+    OutputService outputService;
 
     // 测试1：显示全部内容
     {
-        auto command = std::make_unique<ShowCommand>(lines, &engine);
+        auto command = std::make_unique<ShowCommand>(lines, &engine, &outputService);
 
         command->execute();
         std::string result = command->getResult();
@@ -225,7 +227,7 @@ void testShowCommand() {
 
     // 测试2：显示指定范围
     {
-        auto command = std::make_unique<ShowCommand>(lines, &engine, 1, 2);
+        auto command = std::make_unique<ShowCommand>(lines, &engine, &outputService, 1, 2);
 
         command->execute();
         std::string result = command->getResult();
@@ -236,7 +238,7 @@ void testShowCommand() {
     // 测试3：ShowCommand不应该进入Undo栈
     {
         std::vector<std::string> linesCopy = lines;
-        auto command = std::make_unique<ShowCommand>(linesCopy, &engine);
+        auto command = std::make_unique<ShowCommand>(linesCopy, &engine, &outputService);
 
         // 执行前检查canUndo
         bool canUndoBefore = manager.canUndo();

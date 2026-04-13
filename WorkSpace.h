@@ -12,6 +12,8 @@
 #include "CommandParser.h"
 #include "FileSystemService.h"
 #include "DocumentManager.h"
+#include "OutputService.h"
+#include "DataStructures.h"
 
 // 前向声明
 // class Editor; // 已经包含
@@ -95,12 +97,19 @@ public:
     void saveAllFiles();
     void initFile(const std::string& fileName, bool withLog = false);
 
-    // 获取目录树（使用FileSystemService）
+    // 获取目录树（使用FileSystemService，返回字符串表示）
     std::string getDirectoryTree(const std::string& path = "");
+
+    // 获取文件信息列表（结构化数据）
+    std::vector<FileInfo> getFileInfoList() const;
+
+    // 获取目录树结构（结构化数据）
+    std::shared_ptr<TreeNode> getDirectoryTreeStructure(const std::string& path = "");
 
     // 获取服务引用（用于测试和特殊操作）
     DocumentManager& getDocumentManager();
     FileSystemService& getFileSystemService();
+    OutputService& getOutputService();
 
     // 检查是否有未保存的文件
     bool hasUnsavedFiles() const;
@@ -108,6 +117,7 @@ public:
 private:
     DocumentManager documentManager_;              // 文档管理器
     FileSystemService fileSystemService_;          // 文件系统服务
+    OutputService outputService_;                  // 输出服务
     bool logEnabled_;                              // 日志开关
     std::vector<std::shared_ptr<Observe>> observers_; // 观察者列表
 

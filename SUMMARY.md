@@ -46,6 +46,7 @@
   - 调用`TextEngine::show()`实现
   - 只读命令，不进入Undo栈（重写`isReadOnly()`返回`true`）
   - 支持显示指定范围内容
+  - 使用OutputService输出文本内容，实现输出逻辑统一
 
 - **ReplaceCommand** (`TextCommands.h/.cpp`)：替换文本命令
   - 先执行delete，再执行insert
@@ -216,6 +217,17 @@
 11. **事务逻辑拆分**：通过Model基类统一错误处理接口，将文件系统操作、文档状态管理职责分离到FileSystemService和DocumentManager类中
 12. **协调员模式实现**：重构WorkSpace类作为协调员，统一调度各个服务类，降低模块间耦合，提高代码可测试性
 13. **模型基类设计**：创建Model基类提供统一的异常安全包装器和验证接口，所有核心业务类继承此基类，实现一致的错误处理策略
+14. **统一输出逻辑实现**：创建OutputService类（继承Model基类）提供统一的格式化输出处理，包含结构化数据输出方法
+    - `OutputService`类 (`OutputService.h/.cpp`)：负责统一输出逻辑，继承自Model基类
+    - `outputList()`：输出文件列表，接收`FileInfo`结构体向量（包含文件名、活动状态、修改状态）
+    - `outputTree()`：输出目录树，接收`TreeNode`结构化根节点
+    - `outputError()`：输出错误信息到标准错误流
+    - `outputLine()`：输出单行信息到标准输出流
+    - 在WorkSpace中持有OutputService实例，通过`getOutputService()`访问
+    - DocumentManager和FileSystemService返回结构化数据（`FileInfo`列表和`TreeNode`树）
+    - 命令类（`EditorListCommand`、`DirTreeCommand`、`ExitCommand`、`ShowCommand`）使用OutputService进行输出
+    - CommandController统一错误处理：在最外层捕获异常并调用`outputService.outputError(e.what())`
+    - 结构体定义 (`DataStructures.h`)：包含`FileInfo`和`TreeNode`结构体定义
 
 ### 设计模式应用
 1. **命令模式**：实现可撤销的操作序列
@@ -245,7 +257,9 @@ Project1/
 │   ├── WorkSpace.h/.cpp       # 工作区协调员
 │   ├── WorkSpaceCommand.h     # 工作区命令基类
 │   ├── CommandParser.h/.cpp   # 命令解析器
-│   └── CommandController.h/.cpp # 命令控制器（工厂和路由器）
+│   ├── CommandController.h/.cpp # 命令控制器（工厂和路由器）
+│   ├── OutputService.h/.cpp   # 输出服务（继承Model，统一输出逻辑）
+│   └── DataStructures.h       # 结构体定义（FileInfo、TreeNode）
 └── 测试文件
     ├── test_engine.cpp        # TextEngine单元测试
     ├── test_commands.cpp      # 命令系统测试
@@ -308,5 +322,6 @@ editor.executeCommand(std::move(showCmd));
 - ✅ **事务逻辑拆分**：通过Model基类统一错误处理，FileSystemService和DocumentManager职责分离
 - ✅ **协调员模式**：WorkSpace作为协调员统一调度服务类
 - ✅ **统一的错误处理策略**：所有核心业务类继承Model基类，提供一致的异常安全接口
+- ✅ **统一输出逻辑**：OutputService提供结构化数据输出，CommandController统一错误处理，实现输出逻辑与业务逻辑分离
 
 该框架为构建功能完整的命令行文本编辑器奠定了坚实的基础，所有核心功能均已实现并通过测试验证。重构后的架构更加清晰，职责分离更明确，提高了代码的可维护性和可测试性。

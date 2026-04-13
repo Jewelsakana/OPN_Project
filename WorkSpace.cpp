@@ -270,9 +270,19 @@ void WorkSpace::initFile(const std::string& fileName, bool withLog) {
     documentManager_.setActiveFile(fileName);
 }
 
-// 获取目录树
+// 获取目录树（字符串表示）
 std::string WorkSpace::getDirectoryTree(const std::string& path) {
     return fileSystemService_.getDirectoryTree(path);
+}
+
+// 获取文件信息列表（结构化数据）
+std::vector<FileInfo> WorkSpace::getFileInfoList() const {
+    return documentManager_.getFileInfoList();
+}
+
+// 获取目录树结构（结构化数据）
+std::shared_ptr<TreeNode> WorkSpace::getDirectoryTreeStructure(const std::string& path) {
+    return fileSystemService_.getDirectoryTreeStructure(path);
 }
 
 // 获取服务引用
@@ -282,6 +292,10 @@ DocumentManager& WorkSpace::getDocumentManager() {
 
 FileSystemService& WorkSpace::getFileSystemService() {
     return fileSystemService_;
+}
+
+OutputService& WorkSpace::getOutputService() {
+    return outputService_;
 }
 
 // 检查是否有未保存的文件

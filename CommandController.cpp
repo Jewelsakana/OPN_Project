@@ -3,6 +3,7 @@
 #include "TextEditor.h"
 #include "WorkSpaceCommand.h"
 #include "TextCommands.h"
+#include "OutputService.h"
 #include <stdexcept>
 #include <memory>
 
@@ -25,6 +26,8 @@ void CommandController::parseAndExecuteCommand(const std::string& commandString)
             throw std::runtime_error("Failed to create command from parsed data");
         }
     } catch (const std::exception& e) {
+        // 统一错误处理：使用OutputService输出错误信息
+        workspace_->getOutputService().outputError(e.what());
         // 重新抛出异常，允许上层处理
         throw;
     }
@@ -132,11 +135,13 @@ std::unique_ptr<Command> CommandController::createCommandFromParsed(const Parsed
                 if (parsed.startLine && parsed.endLine) {
                     return std::unique_ptr<Command>(new ShowCommand(
                         textEditor->getLinesRef(), textEngine.get(),
+                        &workspace_->getOutputService(),
                         *parsed.startLine, *parsed.endLine));
                 } else {
                     // 如果没有指定范围，使用默认值
                     return std::unique_ptr<Command>(new ShowCommand(
-                        textEditor->getLinesRef(), textEngine.get()));
+                        textEditor->getLinesRef(), textEngine.get(),
+                        &workspace_->getOutputService()));
                 }
                 break;
         }
@@ -146,21 +151,28 @@ std::unique_ptr<Command> CommandController::createCommandFromParsed(const Parsed
 }
 
 void CommandController::executeCommand(std::unique_ptr<Command> command) {
-    // 判断命令类型：是WorkSpaceCommand还是EditorCommand？
-    if (auto* wsCommand = dynamic_cast<WorkSpaceCommand*>(command.get())) {
-        // 工作区命令，设置关联的工作区
-        wsCommand->setWorkSpace(workspace_);
-        // 执行命令
-        wsCommand->execute();
-    } else {
-        // 编辑器命令，传递给活动编辑器
-        auto activeEditor = workspace_->getActiveEditor();
-        if (activeEditor) {
-            activeEditor->executeCommand(std::move(command));
+    try {
+        // 判断命令类型：是WorkSpaceCommand还是EditorCommand？
+        if (auto* wsCommand = dynamic_cast<WorkSpaceCommand*>(command.get())) {
+            // 工作区命令，设置关联的工作区
+            wsCommand->setWorkSpace(workspace_);
+            // 执行命令
+            wsCommand->execute();
         } else {
-            // 没有活动编辑器，抛出异常
-            throw std::runtime_error("No active editor to execute command");
+            // 编辑器命令，传递给活动编辑器
+            auto activeEditor = workspace_->getActiveEditor();
+            if (activeEditor) {
+                activeEditor->executeCommand(std::move(command));
+            } else {
+                // 没有活动编辑器，抛出异常
+                throw std::runtime_error("No active editor to execute command");
+            }
         }
+    } catch (const std::exception& e) {
+        // 统一错误处理：使用OutputService输出错误信息
+        workspace_->getOutputService().outputError(e.what());
+        // 重新抛出异常，让上层处理
+        throw;
     }
 }
 

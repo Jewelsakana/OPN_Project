@@ -4,6 +4,7 @@
 #include <vector>
 #include <string>
 #include <stdexcept>
+#include "Model.h"
 
 // 自定义异常类，当TextEngine检测到非法操作时抛出
 class TextEngineException : public std::runtime_error {
@@ -40,12 +41,38 @@ public:
         : TextEngineException("Delete length " + std::to_string(length) + " exceeds remaining characters " + std::to_string(remaining) + " in line") {}
 };
 
-// TextEngine类：作为实现复杂的字符串算法的类，不持有数据，仅负责算法
-class TextEngine {
+// TextEngine类：作为实现复杂的字符串算法的类，不持有数据，仅负责算法，继承自Model基类
+class TextEngine : public Model {
 public:
     TextEngine() = default;
-    ~TextEngine() = default;
+    ~TextEngine() override = default;
 
+    // Model接口重写
+    std::string getName() const override {
+        return "TextEngine";
+    }
+
+    void validate() const override {
+        // TextEngine的验证逻辑：检查内部状态是否有效
+        // 由于TextEngine是无状态的，这里总是有效
+    }
+
+    bool isValid() const override {
+        return true; // TextEngine总是有效的
+    }
+
+    void reset() override {
+        // TextEngine无状态，不需要重置
+    }
+
+protected:
+    void handleException(const std::exception& e) const override {
+        // TextEngine特定的异常处理
+        // 可以记录日志或进行特殊处理
+        // 当前实现：什么也不做
+    }
+
+public:
     // 追加文本到行数组末尾
     // 参数：lines - 行数组引用，text - 要追加的文本
     // 注意：text中可以包含换行符('\n')，将自动拆分为多行

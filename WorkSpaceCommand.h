@@ -97,6 +97,9 @@ public:
     bool isReadOnly() const override;
 private:
     std::string path_; // 空字符串表示当前目录
+
+    // 递归打印目录树的辅助函数
+    void printDirectoryTree(const std::string& path, const std::string& prefix, bool isLast);
 };
 
 // 撤销命令

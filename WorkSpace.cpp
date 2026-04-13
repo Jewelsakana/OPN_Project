@@ -1,14 +1,12 @@
 #include "WorkSpace.h"
 #include "TextEditor.h"
 #include "TextEngine.h"
-#include "WorkSpaceCommand.h"
-#include "TextCommands.h"
 #include <algorithm>
 #include <stdexcept>
 #include <fstream>
 #include <iostream>
 
-// WorkspaceMemento实现
+// WorkspaceMemento实现（保持不变，用于向后兼容）
 
 WorkspaceMemento::WorkspaceMemento(const std::vector<std::string>& openFiles,
                                    const std::string& activeFileName,
@@ -36,125 +34,64 @@ bool WorkspaceMemento::isLogEnabled() const {
     return logEnabled_;
 }
 
-// WorkSpace实现
+// WorkSpace实现（重构为协调员）
 
 WorkSpace::WorkSpace() : logEnabled_(false) {
+    // 构造函数：DocumentManager和FileSystemService会自动初始化
 }
 
 WorkSpace::~WorkSpace() {
 }
 
-// 文件管理
+// 文件管理（委托给DocumentManager）
+
 void WorkSpace::openFile(const std::string& fileName) {
-    if (openFiles_.find(fileName) == openFiles_.end()) {
-        // 创建新的TextEditor实例（暂时固定为TextEditor）
-        // TODO: 可能需要根据文件类型创建不同的Editor
-        auto editor = std::make_shared<TextEditor>();
-        // 设置TextEngine
-        auto textEngine = std::make_shared<TextEngine>();
-        editor->setTextEngine(textEngine);
-
-        openFiles_[fileName] = editor;
-        fileModifiedStates_[fileName] = false;
-
-        // 如果没有活动文件，设置为活动文件
-        if (activeFileName_.empty()) {
-            activeFileName_ = fileName;
-        }
-
-        // 通知观察者文件被打开
-        // Event event("open", fileName);
-        // notify(event);
+    if (!documentManager_.isFileOpen(fileName)) {
+        // 创建新的TextEditor实例
+        auto editor = createTextEditor();
+        documentManager_.openFile(fileName, editor);
     }
 }
 
 void WorkSpace::closeFile(const std::string& fileName) {
-    auto it = openFiles_.find(fileName);
-    if (it != openFiles_.end()) {
-        openFiles_.erase(it);
-        fileModifiedStates_.erase(fileName);
-
-        // 如果关闭的是活动文件，需要重新设置活动文件
-        if (activeFileName_ == fileName) {
-            if (!openFiles_.empty()) {
-                activeFileName_ = openFiles_.begin()->first;
-            } else {
-                activeFileName_.clear();
-            }
-        }
-
-        // 通知观察者文件被关闭
-        // Event event("close", fileName);
-        // notify(event);
-    }
+    documentManager_.closeFile(fileName);
 }
 
 void WorkSpace::setActiveFile(const std::string& fileName) {
-    if (openFiles_.find(fileName) != openFiles_.end()) {
-        activeFileName_ = fileName;
-
-        // 通知观察者活动文件改变
-        // Event event("activate", fileName);
-        // notify(event);
-    }
+    documentManager_.setActiveFile(fileName);
 }
 
 std::shared_ptr<Editor> WorkSpace::getActiveEditor() const {
-    if (activeFileName_.empty()) {
-        return nullptr;
-    }
-    auto it = openFiles_.find(activeFileName_);
-    if (it != openFiles_.end()) {
-        return it->second;
-    }
-    return nullptr;
+    return documentManager_.getActiveEditor();
 }
 
 std::shared_ptr<Editor> WorkSpace::getEditor(const std::string& fileName) const {
-    auto it = openFiles_.find(fileName);
-    if (it != openFiles_.end()) {
-        return it->second;
-    }
-    return nullptr;
+    return documentManager_.getEditor(fileName);
 }
 
 std::vector<std::string> WorkSpace::getOpenFiles() const {
-    std::vector<std::string> files;
-    for (const auto& pair : openFiles_) {
-        files.push_back(pair.first);
-    }
-    return files;
+    return documentManager_.getOpenFiles();
 }
 
 const std::string& WorkSpace::getActiveFileName() const {
-    return activeFileName_;
+    return documentManager_.getActiveFileName();
 }
 
 bool WorkSpace::isFileOpen(const std::string& fileName) const {
-    return openFiles_.find(fileName) != openFiles_.end();
+    return documentManager_.isFileOpen(fileName);
 }
 
 void WorkSpace::setFileModified(const std::string& fileName, bool modified) {
-    if (fileModifiedStates_.find(fileName) != fileModifiedStates_.end()) {
-        fileModifiedStates_[fileName] = modified;
-
-        // 通知观察者文件修改状态变化
-        // Event event("modify", fileName);
-        // notify(event);
-    }
+    documentManager_.setFileModified(fileName, modified);
 }
 
 bool WorkSpace::isFileModified(const std::string& fileName) const {
-    auto it = fileModifiedStates_.find(fileName);
-    if (it != fileModifiedStates_.end()) {
-        return it->second;
-    }
-    return false;
+    return documentManager_.isFileModified(fileName);
 }
 
+// 日志开关
 void WorkSpace::setLogEnabled(bool enabled) {
     logEnabled_ = enabled;
-
     // 通知观察者日志开关变化
     // Event event("log", "");
     // notify(event);
@@ -164,41 +101,40 @@ bool WorkSpace::isLogEnabled() const {
     return logEnabled_;
 }
 
+// 备忘录模式：保存和恢复状态
 std::shared_ptr<WorkspaceMemento> WorkSpace::createMemento() const {
-    std::vector<std::string> openFiles;
-    for (const auto& pair : openFiles_) {
-        openFiles.push_back(pair.first);
-    }
+    // 从DocumentManager获取当前状态
+    auto openFiles = documentManager_.getOpenFiles();
+    auto activeFileName = documentManager_.getActiveFileName();
+    auto modifiedStates = documentManager_.getAllModifiedStates();
 
-    return std::make_shared<WorkspaceMemento>(openFiles, activeFileName_, fileModifiedStates_, logEnabled_);
+    return std::make_shared<WorkspaceMemento>(openFiles, activeFileName, modifiedStates, logEnabled_);
 }
 
 void WorkSpace::restoreFromMemento(const WorkspaceMemento& memento) {
     // 清空当前状态
-    openFiles_.clear();
-    fileModifiedStates_.clear();
+    documentManager_.clear();
 
     // 恢复打开的文件（需要重新创建Editor实例）
     const auto& openFiles = memento.getOpenFiles();
     for (const auto& fileName : openFiles) {
-        // 创建新的Editor实例（暂时固定为TextEditor）
-        auto editor = std::make_shared<TextEditor>();
-        // 设置TextEngine
-        auto textEngine = std::make_shared<TextEngine>();
-        editor->setTextEngine(textEngine);
-        openFiles_[fileName] = editor;
+        auto editor = createTextEditor();
+        documentManager_.openFile(fileName, editor);
     }
 
     // 恢复文件修改状态
     const auto& modifiedStates = memento.getFileModifiedStates();
     for (const auto& pair : modifiedStates) {
-        if (openFiles_.find(pair.first) != openFiles_.end()) {
-            fileModifiedStates_[pair.first] = pair.second;
+        if (documentManager_.isFileOpen(pair.first)) {
+            documentManager_.setFileModified(pair.first, pair.second);
         }
     }
 
     // 恢复活动文件名
-    activeFileName_ = memento.getActiveFileName();
+    const std::string& activeFileName = memento.getActiveFileName();
+    if (!activeFileName.empty() && documentManager_.isFileOpen(activeFileName)) {
+        documentManager_.setActiveFile(activeFileName);
+    }
 
     // 恢复日志开关
     logEnabled_ = memento.isLogEnabled();
@@ -208,6 +144,7 @@ void WorkSpace::restoreFromMemento(const WorkspaceMemento& memento) {
     // notify(event);
 }
 
+// 观察者模式
 void WorkSpace::attach(std::shared_ptr<Observe> observer) {
     observers_.push_back(observer);
 }
@@ -229,59 +166,52 @@ void WorkSpace::notifyObservers(const Event& event) {
     }
 }
 
+// 文件加载和保存功能（使用FileSystemService和DocumentManager）
 void WorkSpace::loadFile(const std::string& fileName) {
     // 检查文件是否已经打开，如果是，则直接切换到该文件
-    if (isFileOpen(fileName)) {
-        setActiveFile(fileName);
+    if (documentManager_.isFileOpen(fileName)) {
+        documentManager_.setActiveFile(fileName);
         return;
     }
 
-    std::ifstream file(fileName);
-    if (file.good()) {
+    // 使用FileSystemService加载文件
+    std::vector<std::string> lines;
+    bool fileExisted = false;
+
+    if (fileSystemService_.fileExists(fileName)) {
         // 文件存在，读取内容
-        std::vector<std::string> lines;
-        std::string line;
-        while (std::getline(file, line)) {
-            lines.push_back(line);
-        }
-        file.close();
-
-        // 创建TextEditor并设置内容
-        auto editor = std::make_shared<TextEditor>();
-        auto textEngine = std::make_shared<TextEngine>();
-        editor->setTextEngine(textEngine);
-        editor->setLines(lines);
-        editor->setModified(false); // 从磁盘加载，未修改
-
-        openFiles_[fileName] = editor;
-        fileModifiedStates_[fileName] = false;
-
-        // 设置为活动文件
-        if (activeFileName_.empty()) {
-            activeFileName_ = fileName;
-        } else {
-            // 保持当前活动文件不变，除非没有活动文件
-        }
+        lines = fileSystemService_.loadFile(fileName);
+        fileExisted = true;
     } else {
         // 文件不存在，创建新的空文件
-        openFile(fileName); // 使用现有的openFile方法创建空编辑器
-        fileModifiedStates_[fileName] = true; // 标记为已修改（新文件）
-        // 设置为活动文件
-        setActiveFile(fileName);
+        fileSystemService_.createFileIfNotExists(fileName);
+        lines = {}; // 空内容
+    }
+
+    // 创建TextEditor并设置内容
+    auto editor = createTextEditor();
+    auto textEditor = std::dynamic_pointer_cast<TextEditor>(editor);
+    if (textEditor) {
+        textEditor->setLines(lines);
+        textEditor->setModified(!fileExisted); // 新文件标记为已修改
+    }
+
+    // 添加到DocumentManager
+    documentManager_.openFile(fileName, editor);
+    documentManager_.setFileModified(fileName, !fileExisted);
+
+    // 设置为活动文件
+    if (documentManager_.getActiveFileName().empty()) {
+        documentManager_.setActiveFile(fileName);
     }
 }
 
 void WorkSpace::saveFile(const std::string& fileName) {
-    if (!isFileOpen(fileName)) {
+    if (!documentManager_.isFileOpen(fileName)) {
         throw std::runtime_error("文件未打开: " + fileName);
     }
 
-    std::ofstream file(fileName);
-    if (!file) {
-        throw std::runtime_error("无法写入文件: " + fileName);
-    }
-
-    auto editor = getEditor(fileName);
+    auto editor = documentManager_.getEditor(fileName);
     if (!editor) {
         throw std::runtime_error("编辑器不存在: " + fileName);
     }
@@ -290,29 +220,21 @@ void WorkSpace::saveFile(const std::string& fileName) {
     auto textEditor = std::dynamic_pointer_cast<TextEditor>(editor);
     if (textEditor) {
         const auto& lines = textEditor->getLines();
-        for (size_t i = 0; i < lines.size(); ++i) {
-            file << lines[i];
-            if (i != lines.size() - 1) {
-                file << '\n'; // 行间换行
-            }
-        }
+        fileSystemService_.saveFile(fileName, lines);
+        documentManager_.setFileModified(fileName, false); // 清除修改标记
     } else {
         // 如果是其他类型的Editor，暂时不支持
         throw std::runtime_error("不支持的编辑器类型");
     }
-
-    file.close();
-    setFileModified(fileName, false); // 清除修改标记
 }
 
 void WorkSpace::saveAllFiles() {
-    for (const auto& pair : openFiles_) {
-        const std::string& fileName = pair.first;
+    auto openFiles = documentManager_.getOpenFiles();
+    for (const auto& fileName : openFiles) {
         try {
             saveFile(fileName);
         } catch (const std::exception& e) {
             // 保存单个文件失败，继续保存其他文件
-            // 可以记录错误或重新抛出
             std::cerr << "保存文件 " << fileName << " 失败: " << e.what() << std::endl;
         }
     }
@@ -320,30 +242,57 @@ void WorkSpace::saveAllFiles() {
 
 void WorkSpace::initFile(const std::string& fileName, bool withLog) {
     // 如果文件已打开，则直接切换到该文件
-    if (isFileOpen(fileName)) {
-        setActiveFile(fileName);
+    if (documentManager_.isFileOpen(fileName)) {
+        documentManager_.setActiveFile(fileName);
         return;
     }
 
     // 创建新的TextEditor
-    auto editor = std::make_shared<TextEditor>();
-    auto textEngine = std::make_shared<TextEngine>();
-    editor->setTextEngine(textEngine);
+    auto editor = createTextEditor();
+    auto textEditor = std::dynamic_pointer_cast<TextEditor>(editor);
 
     if (withLog) {
         // 在第一行添加 "# log"
-        editor->setLines({ "# log" });
+        textEditor->setLines({ "# log" });
     } else {
-        // 清空编辑器（保持默认空行）
-        editor->clear();
+        // 清空编辑器
+        textEditor->clear();
     }
 
     // 标记为已修改（新缓冲区）
-    editor->setModified(true);
+    textEditor->setModified(true);
 
-    openFiles_[fileName] = editor;
-    fileModifiedStates_[fileName] = true; // 新文件，已修改
+    // 添加到DocumentManager
+    documentManager_.openFile(fileName, editor);
+    documentManager_.setFileModified(fileName, true);
 
     // 设置为活动文件
-    setActiveFile(fileName);
+    documentManager_.setActiveFile(fileName);
+}
+
+// 获取目录树
+std::string WorkSpace::getDirectoryTree(const std::string& path) {
+    return fileSystemService_.getDirectoryTree(path);
+}
+
+// 获取服务引用
+DocumentManager& WorkSpace::getDocumentManager() {
+    return documentManager_;
+}
+
+FileSystemService& WorkSpace::getFileSystemService() {
+    return fileSystemService_;
+}
+
+// 检查是否有未保存的文件
+bool WorkSpace::hasUnsavedFiles() const {
+    return documentManager_.hasUnsavedFiles();
+}
+
+// 创建TextEditor实例
+std::shared_ptr<TextEditor> WorkSpace::createTextEditor() const {
+    auto editor = std::make_shared<TextEditor>();
+    auto textEngine = std::make_shared<TextEngine>();
+    editor->setTextEngine(textEngine);
+    return editor;
 }

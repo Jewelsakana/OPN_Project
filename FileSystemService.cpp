@@ -1,0 +1,228 @@
+#include "FileSystemService.h"
+#include <fstream>
+#include <iostream>
+#include <algorithm>
+#include <chrono>
+#include <iomanip>
+#include <sstream>
+
+// 尝试使用filesystem库
+#if __has_include(<filesystem>) && (!defined(__GNUC__) || __GNUC__ >= 9)
+// GCC 8的filesystem实现有问题，使用实验版本
+#  include <filesystem>
+   namespace fs = std::filesystem;
+#  define HAS_FILESYSTEM 1
+#elif __has_include(<experimental/filesystem>)
+#  include <experimental/filesystem>
+   namespace fs = std::experimental::filesystem;
+#  define HAS_FILESYSTEM 1
+#else
+#  define HAS_FILESYSTEM 0
+#endif
+
+FileSystemService::FileSystemService() {
+    // 构造函数可以初始化一些状态
+}
+
+std::vector<std::string> FileSystemService::loadFile(const std::string& fileName) {
+    return safeExecute([this, &fileName]() -> std::vector<std::string> {
+        std::ifstream file(fileName);
+        if (!file) {
+            throw std::runtime_error("无法打开文件: " + fileName);
+        }
+
+        std::vector<std::string> lines;
+        std::string line;
+        while (std::getline(file, line)) {
+            lines.push_back(line);
+        }
+
+        file.close();
+        return lines;
+    });
+}
+
+void FileSystemService::saveFile(const std::string& fileName, const std::vector<std::string>& lines) {
+    safeExecute([this, &fileName, &lines]() {
+        std::ofstream file(fileName);
+        if (!file) {
+            throw std::runtime_error("无法写入文件: " + fileName);
+        }
+
+        for (size_t i = 0; i < lines.size(); ++i) {
+            file << lines[i];
+            if (i != lines.size() - 1) {
+                file << '\n'; // 行间换行
+            }
+        }
+
+        file.close();
+    });
+}
+
+bool FileSystemService::fileExists(const std::string& fileName) const {
+#if HAS_FILESYSTEM
+    return fs::exists(fileName);
+#else
+    // 回退方案：尝试打开文件
+    std::ifstream file(fileName);
+    return file.good();
+#endif
+}
+
+std::string FileSystemService::getDirectoryTree(const std::string& path) {
+    return safeExecute([this, &path]() -> std::string {
+#if HAS_FILESYSTEM
+        std::stringstream ss;
+
+        fs::path dirPath;
+        if (path.empty()) {
+            dirPath = fs::current_path();
+        } else {
+            dirPath = fs::path(path);
+        }
+
+        // 检查路径是否存在
+        if (!fs::exists(dirPath)) {
+            throw std::runtime_error("目录不存在: " + dirPath.string());
+        }
+
+        // 检查是否为目录
+        if (!fs::is_directory(dirPath)) {
+            throw std::runtime_error("路径不是目录: " + dirPath.string());
+        }
+
+        ss << dirPath.string() << "\n";
+        ss << buildDirectoryTree(dirPath.string(), "", true);
+        return ss.str();
+#else
+        return "Filesystem library not available. Cannot show directory tree.";
+#endif
+    });
+}
+
+std::string FileSystemService::buildDirectoryTree(const std::string& path, const std::string& prefix, bool isLast) {
+#if HAS_FILESYSTEM
+    std::stringstream ss;
+
+    try {
+        // 收集目录项
+        std::vector<fs::directory_entry> entries;
+        for (const auto& entry : fs::directory_iterator(path)) {
+            entries.push_back(entry);
+        }
+
+        // 排序：先目录后文件，按名称排序
+        std::sort(entries.begin(), entries.end(),
+            [](const fs::directory_entry& a, const fs::directory_entry& b) {
+                bool aIsDir = fs::is_directory(a.path());
+                bool bIsDir = fs::is_directory(b.path());
+                if (aIsDir != bIsDir) {
+                    return aIsDir > bIsDir; // 目录在前
+                }
+                return a.path().filename().string() < b.path().filename().string();
+            });
+
+        // 遍历并构建字符串
+        for (size_t i = 0; i < entries.size(); ++i) {
+            const auto& entry = entries[i];
+            bool lastItem = (i == entries.size() - 1);
+
+            // 当前行的前缀
+            ss << prefix;
+            if (isLast) {
+                ss << "    ";
+            } else {
+                ss << "│   ";
+            }
+
+            // 连接符号
+            if (lastItem) {
+                ss << "└── ";
+            } else {
+                ss << "├── ";
+            }
+
+            // 条目名称
+            std::string name = entry.path().filename().string();
+            if (fs::is_directory(entry.path())) {
+                // 目录加斜杠
+                ss << name << "/\n";
+                // 递归处理子目录
+                std::string newPrefix = prefix;
+                if (isLast) {
+                    newPrefix += "    ";
+                } else {
+                    newPrefix += "│   ";
+                }
+                ss << buildDirectoryTree(entry.path().string(), newPrefix, lastItem);
+            } else {
+                // 文件
+                ss << name << "\n";
+            }
+        }
+    } catch (const fs::filesystem_error& e) {
+        throw std::runtime_error("访问目录出错: " + std::string(e.what()));
+    }
+
+    return ss.str();
+#else
+    return "";
+#endif
+}
+
+bool FileSystemService::createFileIfNotExists(const std::string& fileName) {
+    return safeExecute([this, &fileName]() -> bool {
+        if (!fileExists(fileName)) {
+            std::ofstream file(fileName);
+            if (!file) {
+                throw std::runtime_error("无法创建文件: " + fileName);
+            }
+            file.close();
+            return true;
+        }
+        return false;
+    });
+}
+
+size_t FileSystemService::getFileSize(const std::string& fileName) const {
+#if HAS_FILESYSTEM
+    try {
+        return fs::file_size(fileName);
+    } catch (const fs::filesystem_error&) {
+        return 0;
+    }
+#else
+    // 回退方案：打开文件并获取大小
+    std::ifstream file(fileName, std::ios::binary | std::ios::ate);
+    if (!file) return 0;
+    return file.tellg();
+#endif
+}
+
+std::string FileSystemService::getFileLastModified(const std::string& fileName) const {
+#if HAS_FILESYSTEM
+    try {
+        auto ftime = fs::last_write_time(fileName);
+        auto sctp = std::chrono::time_point_cast<std::chrono::system_clock::duration>(
+            ftime - fs::file_time_type::clock::now() + std::chrono::system_clock::now());
+        std::time_t cftime = std::chrono::system_clock::to_time_t(sctp);
+        std::stringstream ss;
+        ss << std::put_time(std::localtime(&cftime), "%Y-%m-%d %H:%M:%S");
+        return ss.str();
+    } catch (const fs::filesystem_error&) {
+        return "Unknown";
+    }
+#else
+    return "Not available";
+#endif
+}
+
+void FileSystemService::handleException(const std::exception& e) const {
+    // 可以添加文件系统特定的异常处理，如日志记录
+    std::cerr << "FileSystemService error: " << e.what() << std::endl;
+}
+
+bool FileSystemService::isFilesystemAvailable() const {
+    return HAS_FILESYSTEM == 1;
+}

@@ -1,6 +1,23 @@
 #include "WorkSpaceCommand.h"
 #include "WorkSpace.h"
+#include "TextEditor.h"
 #include <iostream>
+#include <vector>
+#include <algorithm>
+
+// 尝试使用filesystem库
+#if __has_include(<filesystem>) && (!defined(__GNUC__) || __GNUC__ >= 9)
+// GCC 8的filesystem实现有问题，使用实验版本
+#  include <filesystem>
+   namespace fs = std::filesystem;
+#  define HAS_FILESYSTEM 1
+#elif __has_include(<experimental/filesystem>)
+#  include <experimental/filesystem>
+   namespace fs = std::experimental::filesystem;
+#  define HAS_FILESYSTEM 1
+#else
+#  define HAS_FILESYSTEM 0
+#endif
 
 // LoadCommand实现
 LoadCommand::LoadCommand(const std::string& fileName) : fileName_(fileName), wasOpen_(false) {}
@@ -172,8 +189,36 @@ bool EditCommand::isReadOnly() const {
 EditorListCommand::EditorListCommand() {}
 
 void EditorListCommand::execute() {
-    std::cout << "EditorListCommand: Listing all open editors" << std::endl;
-    // TODO: 实际的编辑器列表显示逻辑
+    if (!workspace_) {
+        throw std::runtime_error("EditorListCommand: No workspace associated");
+    }
+
+    const std::string& activeFileName = workspace_->getActiveFileName();
+    auto openFiles = workspace_->getOpenFiles();
+
+    if (openFiles.empty()) {
+        std::cout << "No files open in workspace" << std::endl;
+        return;
+    }
+
+    for (const auto& fileName : openFiles) {
+        // 标记活动文件
+        if (fileName == activeFileName) {
+            std::cout << "* ";
+        } else {
+            std::cout << "  ";
+        }
+
+        // 输出文件名
+        std::cout << fileName;
+
+        // 标记已修改的文件
+        if (workspace_->isFileModified(fileName)) {
+            std::cout << " [modified]";
+        }
+
+        std::cout << std::endl;
+    }
 }
 
 void EditorListCommand::undo() {
@@ -189,13 +234,15 @@ bool EditorListCommand::isReadOnly() const {
 DirTreeCommand::DirTreeCommand(const std::string& path) : path_(path) {}
 
 void DirTreeCommand::execute() {
-    if (path_.empty()) {
-        std::cout << "DirTreeCommand: Showing directory tree of current directory" << std::endl;
-    } else {
-        std::cout << "DirTreeCommand: Showing directory tree of '" << path_ << "'" << std::endl;
+    if (!workspace_) {
+        throw std::runtime_error("DirTreeCommand: No workspace associated");
     }
-    // TODO: 实际的目录树显示逻辑
+
+    // 使用WorkSpace的getDirectoryTree方法，它会委托给FileSystemService
+    std::string tree = workspace_->getDirectoryTree(path_);
+    std::cout << tree;
 }
+
 
 void DirTreeCommand::undo() {
     std::cout << "DirTreeCommand: Undo showing directory tree (nothing to undo)" << std::endl;
@@ -210,8 +257,28 @@ bool DirTreeCommand::isReadOnly() const {
 UndoCommand::UndoCommand() {}
 
 void UndoCommand::execute() {
-    std::cout << "UndoCommand: Performing undo" << std::endl;
-    // TODO: 实际的撤销逻辑
+    if (!workspace_) {
+        throw std::runtime_error("UndoCommand: No workspace associated");
+    }
+
+    auto activeEditor = workspace_->getActiveEditor();
+    if (!activeEditor) {
+        throw std::runtime_error("UndoCommand: No active editor");
+    }
+
+    // 检查是否可以撤销
+    // 假设activeEditor是TextEditor类型，有canUndo()方法
+    // 实际上，Editor接口可能没有canUndo()，需要向下转型
+    auto textEditor = std::dynamic_pointer_cast<TextEditor>(activeEditor);
+    if (!textEditor) {
+        throw std::runtime_error("UndoCommand: Active editor is not a TextEditor");
+    }
+
+    if (!textEditor->canUndo()) {
+        throw std::runtime_error("UndoCommand: Nothing to undo");
+    }
+
+    textEditor->undo();
 }
 
 void UndoCommand::undo() {
@@ -227,8 +294,25 @@ bool UndoCommand::isReadOnly() const {
 RedoCommand::RedoCommand() {}
 
 void RedoCommand::execute() {
-    std::cout << "RedoCommand: Performing redo" << std::endl;
-    // TODO: 实际的重做逻辑
+    if (!workspace_) {
+        throw std::runtime_error("RedoCommand: No workspace associated");
+    }
+
+    auto activeEditor = workspace_->getActiveEditor();
+    if (!activeEditor) {
+        throw std::runtime_error("RedoCommand: No active editor");
+    }
+
+    auto textEditor = std::dynamic_pointer_cast<TextEditor>(activeEditor);
+    if (!textEditor) {
+        throw std::runtime_error("RedoCommand: Active editor is not a TextEditor");
+    }
+
+    if (!textEditor->canRedo()) {
+        throw std::runtime_error("RedoCommand: Nothing to redo");
+    }
+
+    textEditor->redo();
 }
 
 void RedoCommand::undo() {
@@ -244,8 +328,34 @@ bool RedoCommand::isReadOnly() const {
 ExitCommand::ExitCommand() {}
 
 void ExitCommand::execute() {
-    std::cout << "ExitCommand: Exiting program" << std::endl;
-    // TODO: 实际的退出逻辑（清理资源等）
+    if (!workspace_) {
+        throw std::runtime_error("ExitCommand: No workspace associated");
+    }
+
+    // 检查是否有未保存的文件
+    std::vector<std::string> unsavedFiles;
+    auto openFiles = workspace_->getOpenFiles();
+    for (const auto& fileName : openFiles) {
+        if (workspace_->isFileModified(fileName)) {
+            unsavedFiles.push_back(fileName);
+        }
+    }
+
+    if (!unsavedFiles.empty()) {
+        std::string errorMsg = "ExitCommand: The following files have unsaved changes:\n";
+        for (const auto& fileName : unsavedFiles) {
+            errorMsg += "  " + fileName + "\n";
+        }
+        errorMsg += "Please save them before exiting.";
+        throw std::runtime_error(errorMsg);
+    }
+
+    // 所有文件已保存，可以退出
+    // 注意：实际退出程序应由上层调用者处理
+    // 这里只是标记可以退出
+    std::cout << "ExitCommand: All files saved. Ready to exit." << std::endl;
+    // 可以设置一个退出标志，或者抛出一个特殊异常
+    // 暂时只打印消息
 }
 
 void ExitCommand::undo() {

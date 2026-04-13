@@ -10,6 +10,8 @@
 #include "Event.h"
 #include "Editor.h"
 #include "CommandParser.h"
+#include "FileSystemService.h"
+#include "DocumentManager.h"
 
 // 前向声明
 // class Editor; // 已经包含
@@ -44,33 +46,33 @@ private:
     bool logEnabled_;                              // 日志开关状态
 };
 
-// WorkSpace类：管理工作区状态
+// WorkSpace类：作为协调员，管理工作区状态，委托给DocumentManager和FileSystemService
 class WorkSpace {
 public:
     WorkSpace();
     ~WorkSpace();
 
-    // 文件管理
+    // 文件管理（委托给DocumentManager）
     void openFile(const std::string& fileName);
     void closeFile(const std::string& fileName);
     void setActiveFile(const std::string& fileName);
 
-    // 获取当前活动编辑器
+    // 获取当前活动编辑器（委托给DocumentManager）
     std::shared_ptr<Editor> getActiveEditor() const;
 
-    // 获取编辑器by文件名
+    // 获取编辑器by文件名（委托给DocumentManager）
     std::shared_ptr<Editor> getEditor(const std::string& fileName) const;
 
-    // 获取打开的文件列表
+    // 获取打开的文件列表（委托给DocumentManager）
     std::vector<std::string> getOpenFiles() const;
 
-    // 获取当前活动文件名
+    // 获取当前活动文件名（委托给DocumentManager）
     const std::string& getActiveFileName() const;
 
-    // 检查文件是否已打开
+    // 检查文件是否已打开（委托给DocumentManager）
     bool isFileOpen(const std::string& fileName) const;
 
-    // 修改状态管理
+    // 修改状态管理（委托给DocumentManager）
     void setFileModified(const std::string& fileName, bool modified);
     bool isFileModified(const std::string& fileName) const;
 
@@ -87,24 +89,33 @@ public:
     void detach(std::shared_ptr<Observe> observer);
     void notify(const Event& event);
 
-    // 命令处理相关职责已转移到CommandController类中
-    // 使用CommandController进行命令的创建、分发和执行
-
-    // 文件加载和保存功能
+    // 文件加载和保存功能（使用FileSystemService和DocumentManager）
     void loadFile(const std::string& fileName);
     void saveFile(const std::string& fileName);
     void saveAllFiles();
     void initFile(const std::string& fileName, bool withLog = false);
 
+    // 获取目录树（使用FileSystemService）
+    std::string getDirectoryTree(const std::string& path = "");
+
+    // 获取服务引用（用于测试和特殊操作）
+    DocumentManager& getDocumentManager();
+    FileSystemService& getFileSystemService();
+
+    // 检查是否有未保存的文件
+    bool hasUnsavedFiles() const;
+
 private:
-    std::map<std::string, std::shared_ptr<Editor>> openFiles_;  // 打开的文件映射
-    std::string activeFileName_;                                // 当前活动文件名
-    std::map<std::string, bool> fileModifiedStates_;            // 文件修改状态
-    bool logEnabled_;                                           // 日志开关
-    std::vector<std::shared_ptr<Observe>> observers_;           // 观察者列表
+    DocumentManager documentManager_;              // 文档管理器
+    FileSystemService fileSystemService_;          // 文件系统服务
+    bool logEnabled_;                              // 日志开关
+    std::vector<std::shared_ptr<Observe>> observers_; // 观察者列表
 
     // 通知观察者
     void notifyObservers(const Event& event);
+
+    // 创建TextEditor实例
+    std::shared_ptr<TextEditor> createTextEditor() const;
 };
 
 #endif // WORKSPACE_H

@@ -30,6 +30,7 @@ public:
     void startLoggingForFile(const std::string& fileName);
     void stopLoggingForFile(const std::string& fileName);
     bool isLoggingForFile(const std::string& fileName) const;
+    void showLog(const std::string& fileName);
 
     // 获取所有正在记录日志的文件
     std::vector<std::string> getLoggedFiles() const;

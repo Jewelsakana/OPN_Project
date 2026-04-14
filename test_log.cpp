@@ -6,7 +6,6 @@
 #include <cassert>
 #include <fstream>
 #include <string>
-#include <filesystem>
 
 // 辅助函数：检查文件是否存在
 bool fileExists(const std::string& filename) {
@@ -80,6 +79,41 @@ void testAutoLogStart() {
     std::cout << "Auto log start test passed." << std::endl;
 }
 
+// 测试log-show命令
+void testLogShowCommand() {
+    std::cout << "Testing log-show command..." << std::endl;
+    WorkSpace ws;
+    CommandController controller(&ws);
+
+    // 创建新文件并启动日志
+    controller.parseAndExecuteCommand("init showtest.txt");
+    controller.parseAndExecuteCommand("log-on showtest.txt");
+
+    // 执行一些命令，应该被记录
+    controller.parseAndExecuteCommand("insert 1:1 \"Test log show\"");
+    controller.parseAndExecuteCommand("append \" additional text\"");
+
+    // 使用log-show命令显示日志
+    controller.parseAndExecuteCommand("log-show showtest.txt");
+
+    // 停止日志并清理
+    controller.parseAndExecuteCommand("log-off showtest.txt");
+
+    // 检查日志文件是否存在
+    std::string logFile = ".showtest.txt.log";
+    assert(fileExists(logFile));
+
+    // 读取日志文件，检查内容
+    std::string logContent = readFile(logFile);
+    assert(logContent.find("Test log show") != std::string::npos);
+    assert(logContent.find("additional text") != std::string::npos);
+
+    // 清理
+    std::remove("showtest.txt");
+    std::remove(logFile.c_str());
+    std::cout << "Log-show command test passed." << std::endl;
+}
+
 // 测试日志写入失败警告（模拟权限错误）
 void testLogWriteFailure() {
     std::cout << "Testing log write failure handling..." << std::endl;
@@ -91,6 +125,7 @@ int main() {
     try {
         testLogCommands();
         testAutoLogStart();
+        testLogShowCommand();
         testLogWriteFailure();
         std::cout << "All log tests passed!" << std::endl;
         return 0;

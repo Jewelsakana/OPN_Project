@@ -338,6 +338,19 @@ bool WorkSpace::isLoggingForFile(const std::string& fileName) const {
     return loggerManager_.isLoggingForFile(fileName);
 }
 
+void WorkSpace::showLog(const std::string& fileName) {
+    std::string targetFile = fileName;
+    if (targetFile.empty()) {
+        targetFile = getActiveFileName();
+        if (targetFile.empty()) {
+            outputService_.outputLine("Error: No active file to show log");
+            return;
+        }
+    }
+    // 委托给LoggerManager处理日志显示
+    loggerManager_.showLog(targetFile);
+}
+
 // 创建TextEditor实例
 std::shared_ptr<TextEditor> WorkSpace::createTextEditor() const {
     auto editor = std::make_shared<TextEditor>();

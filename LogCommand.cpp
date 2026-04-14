@@ -18,17 +18,25 @@ void LogonCommand::execute() {
             throw std::runtime_error("No active file to start logging");
         }
     }
+    // 记录执行前的状态
+    wasLogging_ = workspace_->isLoggingForFile(targetFile);
     // 调用工作区方法启动日志记录
     workspace_->startLoggingForFile(targetFile);
+    // 保存实际文件名（用于撤销）
+    fileName_ = targetFile;
     workspace_->getOutputService().outputLine("Logging started for file: " + targetFile);
 }
 
 void LogonCommand::undo() {
-    // TODO: 实现撤销
-    // 暂时输出信息
-    if (workspace_) {
-        workspace_->getOutputService().outputLine("LogonCommand undo (not implemented)");
+    if (!workspace_) {
+        throw std::runtime_error("LogonCommand: No workspace associated for undo");
     }
+    // 如果执行前不在记录日志，则停止日志记录
+    if (!wasLogging_) {
+        workspace_->stopLoggingForFile(fileName_);
+        workspace_->getOutputService().outputLine("Logging stopped for file (undo): " + fileName_);
+    }
+    // 如果执行前已经在记录日志，则不需要做任何事情
 }
 
 bool LogonCommand::isReadOnly() const {
@@ -50,16 +58,25 @@ void LogoffCommand::execute() {
             throw std::runtime_error("No active file to stop logging");
         }
     }
+    // 记录执行前的状态
+    wasLogging_ = workspace_->isLoggingForFile(targetFile);
     // 调用工作区方法停止日志记录
     workspace_->stopLoggingForFile(targetFile);
+    // 保存实际文件名（用于撤销）
+    fileName_ = targetFile;
     workspace_->getOutputService().outputLine("Logging stopped for file: " + targetFile);
 }
 
 void LogoffCommand::undo() {
-    // TODO: 实现撤销
-    if (workspace_) {
-        workspace_->getOutputService().outputLine("LogoffCommand undo (not implemented)");
+    if (!workspace_) {
+        throw std::runtime_error("LogoffCommand: No workspace associated for undo");
     }
+    // 如果执行前在记录日志，则重新启动日志记录
+    if (wasLogging_) {
+        workspace_->startLoggingForFile(fileName_);
+        workspace_->getOutputService().outputLine("Logging started for file (undo): " + fileName_);
+    }
+    // 如果执行前不在记录日志，则不需要做任何事情
 }
 
 bool LogoffCommand::isReadOnly() const {
@@ -73,21 +90,18 @@ void LogshowCommand::execute() {
     if (!workspace_) {
         throw std::runtime_error("LogshowCommand: No workspace associated");
     }
-    // TODO: 实现显示日志
     std::string targetFile = fileName_;
     if (targetFile.empty()) {
         targetFile = workspace_->getActiveFileName();
+        if (targetFile.empty()) {
+            throw std::runtime_error("No active file to show log");
+        }
     }
-    // workspace_->showLog(targetFile);
-
-    workspace_->getOutputService().outputLine("Showing log for file: " + targetFile);
+    workspace_->showLog(targetFile);
 }
 
 void LogshowCommand::undo() {
-    // TODO: 实现撤销
-    if (workspace_) {
-        workspace_->getOutputService().outputLine("LogshowCommand undo (not implemented)");
-    }
+    // log-show是只读命令，不需要撤销操作
 }
 
 bool LogshowCommand::isReadOnly() const {

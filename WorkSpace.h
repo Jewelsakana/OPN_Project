@@ -88,6 +88,7 @@ public:
     void startLoggingForFile(const std::string& fileName);
     void stopLoggingForFile(const std::string& fileName);
     bool isLoggingForFile(const std::string& fileName) const;
+    void showLog(const std::string& fileName);
 
     // 会话开始通知
     void notifySessionStart();

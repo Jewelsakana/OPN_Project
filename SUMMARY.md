@@ -65,11 +65,29 @@
   - 提供`undo()`、`redo()`、`canUndo()`、`canRedo()`方法
   - 命令执行成功时自动设置修改状态
 
-### 5. 工作区模块（重构后）
+### 5. 日志模块
+- **LoggerManager类** (`LoggerManager.h/.cpp`)：负责文件日志记录器的生命周期管理，继承自Model基类
+  - 与FileSystemService和WorkSpace协作，管理FileLogger实例
+  - 提供`startLoggingForFile()`、`stopLoggingForFile()`、`isLoggingForFile()`、`showLog()`等方法
+  - 自动处理观察者注册/注销，委托给WorkSpace的观察者列表
+  - `showLog()`方法负责读取并显示日志文件内容，使用FileSystemService读取文件，通过WorkSpace的OutputService输出
+- **FileLogger类** (`Logger.h/.cpp`)：日志观察者，负责将事件记录到日志文件
+  - 实现Observe接口的`update()`方法，监听Event事件
+  - 自动生成日志文件名（`.filename.log`格式）
+  - 将时间戳和命令内容格式化为日志条目
+  - 日志写入失败时只警告不中断程序，确保系统稳定性
+- **日志命令** (`LogCommand.h/.cpp`)：完整的日志管理命令实现
+  - `LogonCommand`：启动日志记录命令
+  - `LogoffCommand`：停止日志记录命令  
+  - `LogshowCommand`：显示日志记录命令
+  - 所有命令支持撤销操作，记录执行前状态用于精确恢复
+
+### 6. 工作区模块（重构后）
 - **WorkSpace类** (`WorkSpace.h/.cpp`)：作为协调员，管理工作区状态，委托给DocumentManager和FileSystemService
   - 维护日志开关状态和观察者列表
   - 提供统一的文件管理接口，内部委托给相应的服务类
   - 支持文件加载、保存、目录树显示等功能
+  - 集成LoggerManager，`showLog()`方法委托给LoggerManager显示日志内容
 - **DocumentManager类** (`DocumentManager.h/.cpp`)：管理文件状态和编辑器映射，继承自Model基类
   - 使用`std::map<std::string, std::shared_ptr<Editor>>`管理打开的文件
   - 维护当前活动文件、文件修改状态
@@ -96,6 +114,10 @@
   - `UndoCommand`：撤销命令。撤销上一次编辑操作，只撤销改变文件状态的命令（显示类命令不进入撤销栈）。调用当前活动编辑器的`undo()`方法实现。
   - `RedoCommand`：重做命令。重做上一次撤销的操作，调用当前活动编辑器的`redo()`方法实现。确保撤销/重做链的完整性。
   - `ExitCommand`：退出程序命令。退出编辑器程序，检查所有打开文件的修改状态，如果有未保存的文件则抛出异常提示用户保存。所有文件保存后提示"All files saved. Ready to exit."。
+  - **日志命令** (`LogCommand.h/.cpp`)：完整的日志管理命令实现
+    - `LogonCommand`：启动日志记录命令。为指定文件（或当前活动文件）启用日志记录，后续该文件的所有编辑操作和保存行为都被记录到`.filename.log`文件中。支持自动检测文件首行的"# log"标记。
+    - `LogoffCommand`：停止日志记录命令。关闭指定文件（或当前活动文件）的日志记录，停止监听该文件的事件但不删除已有日志。
+    - `LogshowCommand`：显示日志记录命令。显示指定文件（或当前活动文件）的日志记录内容，使用OutputService类进行格式化输出。
   - 所有命令均支持撤销操作（部分命令撤销逻辑受限）。
 - **CommandParser类** (`CommandParser.h/.cpp`)：完整的命令解析器实现
   - 支持正则表达式解析复杂命令格式（如`insert <line:col> "text"`）
@@ -235,10 +257,18 @@
     - 命令类（`EditorListCommand`、`DirTreeCommand`、`ExitCommand`、`ShowCommand`）使用OutputService进行输出
     - CommandController统一错误处理：在最外层捕获异常并调用`outputService.outputError(e.what())`
     - 结构体定义 (`DataStructures.h`)：包含`FileInfo`和`TreeNode`结构体定义
+15. **日志模块的完整实现**：完整的观察者模式日志系统
+    - **FileLogger类**：实现Observe接口，监听Event事件并记录到`.filename.log`文件
+    - **LoggerManager类**：管理FileLogger生命周期，与WorkSpace观察者列表集成，继承Model基类提供异常安全
+    - **日志命令系统**：完整的`log-on`、`log-off`、`log-show`命令实现，支持撤销操作和状态恢复
+    - **自动日志启动**：支持文件首行"# log"标记自动启动日志记录
+    - **异常安全设计**：日志写入失败只警告不中断程序，确保系统稳定性
+    - **输出集成**：`log-show`命令使用OutputService统一输出日志内容
+16. **日志显示功能的职责分离**：将`showLog()`方法从WorkSpace迁移到LoggerManager，进一步分离日志管理职责，WorkSpace作为协调员仅负责文件名解析和委托调用，LoggerManager负责具体的日志读取和输出逻辑，提高模块内聚性
 
 ### 设计模式应用
 1. **命令模式**：实现可撤销的操作序列
-2. **观察者模式**：为事件监听提供框架（日志待实现）
+2. **观察者模式**：为事件监听提供框架，已通过FileLogger类完整实现日志事件监听
 3. **异常处理模式**：分层异常体系，提高代码健壮性
 4. **职责分离模式**：通过CommandController将命令创建、解析、执行职责分离，提高模块内聚性
 
@@ -257,6 +287,10 @@ Project1/
 ├── 命令系统
 │   ├── TextCommands.h/.cpp    # 所有命令子类实现
 │   └── （继承自Command接口）
+├── 日志模块
+│   ├── Logger.h/.cpp          # 文件日志记录器（观察者）
+│   ├── LoggerManager.h/.cpp   # 日志管理器（继承Model）
+│   └── LogCommand.h/.cpp      # 日志命令实现
 ├── 工作区模块
 │   ├── Model.h                # Model基类（基础架构）
 │   ├── FileSystemService.h/.cpp # 文件系统服务（继承Model）
@@ -273,6 +307,8 @@ Project1/
     ├── test_texteditor.cpp    # TextEditor集成测试
     ├── test_workspace.cpp        # 工作区模块测试
     ├── test_commandparser.cpp    # CommandParser解析测试
+    ├── test_log.cpp              # 日志命令功能测试
+    └── test_loggermanager.cpp    # 日志管理器单元测试
 ```
 
 ## 使用示例

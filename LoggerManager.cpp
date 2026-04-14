@@ -55,6 +55,38 @@ size_t LoggerManager::getLoggerCount() const {
     return fileLoggers_.size();
 }
 
+void LoggerManager::showLog(const std::string& fileName) {
+    safeExecute([this, &fileName]() {
+        std::string targetFile = fileName;
+        if (targetFile.empty()) {
+            // 需要从WorkSpace获取当前活动文件，但LoggerManager没有直接访问
+            // 这里我们暂时假设调用者已经提供了文件名
+            // 在实际使用中，WorkSpace的showLog方法会处理空文件名情况
+            throw std::runtime_error("LoggerManager::showLog requires a file name");
+        }
+
+        // 生成日志文件名（与Logger类一致）
+        std::string logFileName = "." + targetFile + ".log";
+
+        try {
+            // 使用FileSystemService读取日志文件
+            auto logLines = fileSystemService_.loadFile(logFileName);
+            if (logLines.empty()) {
+                // 通过WorkSpace的OutputService输出
+                workspace_.getOutputService().outputLine("Log file is empty: " + logFileName);
+            } else {
+                workspace_.getOutputService().outputLine("Log content for file: " + targetFile);
+                for (const auto& line : logLines) {
+                    workspace_.getOutputService().outputLine(line);
+                }
+            }
+        } catch (const std::exception& e) {
+            // 文件不存在或其他错误
+            workspace_.getOutputService().outputLine("Cannot show log for file " + targetFile + ": " + e.what());
+        }
+    });
+}
+
 void LoggerManager::handleException(const std::exception& e) const {
     // 可以添加日志记录器特定的异常处理，如记录到专用日志
     std::cerr << "LoggerManager error: " << e.what() << std::endl;

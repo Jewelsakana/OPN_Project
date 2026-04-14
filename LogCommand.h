@@ -24,6 +24,7 @@ public:
     bool isReadOnly() const override;
 private:
     std::string fileName_; // 空字符串表示当前活动文件
+    bool wasLogging_ = false; // 执行前是否已经在记录日志
 };
 
 // 停止日志记录命令
@@ -35,6 +36,7 @@ public:
     bool isReadOnly() const override;
 private:
     std::string fileName_; // 空字符串表示当前活动文件
+    bool wasLogging_ = false; // 执行前是否在记录日志
 };
 
 // 显示日志记录命令

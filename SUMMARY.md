@@ -164,6 +164,12 @@
   - 异常处理测试：验证命令执行失败时不进入Undo栈
   - 命令序列测试：多个命令的撤销/重做链
 
+- **日志管理器测试** (`test_loggermanager.cpp`)：验证LoggerManager和FileLogger的完整功能
+  - 基本功能测试：启动/停止文件日志记录、重复启动无影响
+  - 状态管理测试：验证日志记录器数量、已记录文件列表
+  - Model基类集成测试：验证继承Model基类的正确性
+  - 文件集成测试：验证日志文件创建和事件通知
+
 
 ### 集成测试
 - **TextEditor集成测试** (`test_texteditor.cpp`)：验证TextEditor与CommandManager的完整集成
@@ -192,6 +198,7 @@
 2. **命令系统单元测试** (`test_commands.exe`) - 全部通过 (31项测试)
 3. **CommandParser解析测试** (`test_commandparser.exe`) - 全部通过 (34项测试)
 4. **工作区模块集成测试** (`test_workspace.exe`) - 全部通过 (所有功能测试)
+5. **日志管理器测试** (`test_loggermanager.exe`) - 全部通过 (3项测试)
 
 **新增工作区命令测试覆盖**：
 - EditorListCommand：正确显示打开文件列表及修改状态

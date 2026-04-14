@@ -2,6 +2,7 @@
 #include <iomanip>
 #include <sstream>
 #include <chrono>
+#include <iostream>
 
 FileLogger::FileLogger(const std::string& fileName, FileSystemService& fileSystemService)
     : fileName_(fileName), fileSystemService_(fileSystemService) {

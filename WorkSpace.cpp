@@ -39,8 +39,9 @@ bool WorkspaceMemento::isLogEnabled() const {
 
 // WorkSpace实现（重构为协调员）
 
-WorkSpace::WorkSpace() : logEnabled_(false) {
+WorkSpace::WorkSpace() : logEnabled_(false), loggerManager_(fileSystemService_, *this) {
     // 构造函数：DocumentManager和FileSystemService会自动初始化
+    // LoggerManager需要引用FileSystemService和WorkSpace
 }
 
 WorkSpace::~WorkSpace() {
@@ -167,6 +168,10 @@ void WorkSpace::notifyObservers(const Event& event) {
     for (const auto& observer : observers_) {
         observer->update(event);
     }
+}
+
+size_t WorkSpace::getObserverCount() const {
+    return observers_.size();
 }
 
 // 文件加载和保存功能（使用FileSystemService和DocumentManager）
@@ -311,6 +316,10 @@ OutputService& WorkSpace::getOutputService() {
     return outputService_;
 }
 
+LoggerManager& WorkSpace::getLoggerManager() {
+    return loggerManager_;
+}
+
 // 检查是否有未保存的文件
 bool WorkSpace::hasUnsavedFiles() const {
     return documentManager_.hasUnsavedFiles();
@@ -318,32 +327,15 @@ bool WorkSpace::hasUnsavedFiles() const {
 
 // 文件日志管理
 void WorkSpace::startLoggingForFile(const std::string& fileName) {
-    if (fileLoggers_.find(fileName) != fileLoggers_.end()) {
-        // 日志记录器已存在
-        return;
-    }
-    // 创建新的日志记录器
-    auto logger = std::make_shared<FileLogger>(fileName, fileSystemService_);
-    fileLoggers_[fileName] = logger;
-    attach(logger);
-    // 可选：记录日志启动事件
-    // Event event("log-on", fileName);
-    // notify(event);
+    loggerManager_.startLoggingForFile(fileName);
 }
 
 void WorkSpace::stopLoggingForFile(const std::string& fileName) {
-    auto it = fileLoggers_.find(fileName);
-    if (it != fileLoggers_.end()) {
-        detach(it->second);
-        fileLoggers_.erase(it);
-        // 可选：记录日志停止事件
-        // Event event("log-off", fileName);
-        // notify(event);
-    }
+    loggerManager_.stopLoggingForFile(fileName);
 }
 
 bool WorkSpace::isLoggingForFile(const std::string& fileName) const {
-    return fileLoggers_.find(fileName) != fileLoggers_.end();
+    return loggerManager_.isLoggingForFile(fileName);
 }
 
 // 创建TextEditor实例

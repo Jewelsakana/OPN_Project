@@ -14,11 +14,12 @@
 #include "DocumentManager.h"
 #include "OutputService.h"
 #include "DataStructures.h"
+#include "LoggerManager.h"
 
 // 前向声明
 // class Editor; // 已经包含
 // class Observe;
-class FileLogger;
+class LoggerManager;
 // class Event;
 
 // WorkspaceMemento类：用于保存和恢复工作区状态
@@ -99,6 +100,7 @@ public:
     void attach(std::shared_ptr<Observe> observer);
     void detach(std::shared_ptr<Observe> observer);
     void notify(const Event& event);
+    size_t getObserverCount() const;  // 获取观察者数量（用于测试）
 
     // 文件加载和保存功能（使用FileSystemService和DocumentManager）
     void loadFile(const std::string& fileName);
@@ -119,6 +121,7 @@ public:
     DocumentManager& getDocumentManager();
     FileSystemService& getFileSystemService();
     OutputService& getOutputService();
+    LoggerManager& getLoggerManager();
 
     // 检查是否有未保存的文件
     bool hasUnsavedFiles() const;
@@ -127,9 +130,9 @@ private:
     DocumentManager documentManager_;              // 文档管理器
     FileSystemService fileSystemService_;          // 文件系统服务
     OutputService outputService_;                  // 输出服务
+    LoggerManager loggerManager_;                  // 日志管理器
     bool logEnabled_;                              // 日志开关
     std::vector<std::shared_ptr<Observe>> observers_; // 观察者列表
-    std::map<std::string, std::shared_ptr<FileLogger>> fileLoggers_; // 文件日志记录器映射
 
     // 通知观察者
     void notifyObservers(const Event& event);

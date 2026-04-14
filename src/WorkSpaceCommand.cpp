@@ -341,6 +341,14 @@ void ExitCommand::execute() {
     }
 
     // 所有文件已保存，可以退出
+    // 首先保存工作区配置到文件
+    try {
+        workspace_->saveConfig(".editor_config");
+    } catch (const std::exception& e) {
+        // 配置保存失败不应该阻止退出，但记录警告
+        outputService.outputError("Warning: Failed to save configuration: " + std::string(e.what()));
+    }
+
     // 设置退出标志，由上层调用者处理实际退出
     workspace_->requestExit();
     outputService.outputLine("ExitCommand: All files saved. Exiting program...");

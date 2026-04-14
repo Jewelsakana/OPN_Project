@@ -42,6 +42,10 @@ bool WorkspaceMemento::isLogEnabled() const {
 WorkSpace::WorkSpace() : logEnabled_(false), exitRequested_(false), loggerManager_(fileSystemService_, *this) {
     // 构造函数：DocumentManager和FileSystemService会自动初始化
     // LoggerManager需要引用FileSystemService和WorkSpace
+
+    // 在初始化时尝试加载配置文件
+    // 如果配置文件损坏或不存在，程序应正常启动为空白状态
+    loadConfig(".editor_config");
 }
 
 WorkSpace::~WorkSpace() {
@@ -378,4 +382,49 @@ void WorkSpace::requestExit() {
 
 bool WorkSpace::isExitRequested() const {
     return exitRequested_;
+}
+
+// 配置管理
+void WorkSpace::saveConfig(const std::string& configFile) {
+    try {
+        // 创建当前状态的Memento
+        auto memento = createMemento();
+
+        // 通过FileSystemService保存配置
+        fileSystemService_.saveWorkspaceConfig(configFile, *memento);
+
+        // 通知保存成功
+        Event event("config saved", configFile);
+        notify(event);
+    } catch (const std::exception& e) {
+        // 配置文件保存失败，但不应该导致程序崩溃
+        // 可以记录错误，但程序继续运行
+        outputService_.outputError("Warning: Failed to save configuration: " + std::string(e.what()));
+    }
+}
+
+bool WorkSpace::loadConfig(const std::string& configFile) {
+    try {
+        // 通过FileSystemService加载配置
+        auto memento = fileSystemService_.loadWorkspaceConfig(configFile);
+
+        if (!memento) {
+            // 配置文件不存在，返回false表示加载失败（但这不是错误）
+            return false;
+        }
+
+        // 从Memento恢复状态
+        restoreFromMemento(*memento);
+
+        // 通知配置加载成功
+        Event event("config loaded", configFile);
+        notify(event);
+
+        return true;
+    } catch (const std::exception& e) {
+        // 配置文件损坏或格式错误
+        // 输出警告，但程序继续运行（返回false表示加载失败）
+        outputService_.outputError("Warning: Failed to load configuration (using default): " + std::string(e.what()));
+        return false;
+    }
 }

@@ -9,6 +9,7 @@
 
 // 前向声明
 class TextEditor;
+class WorkspaceMemento;
 
 // FileSystemService类：负责文件系统操作，继承自Model基类
 class FileSystemService : public Model {
@@ -55,6 +56,12 @@ public:
 
     // 获取文件最后修改时间
     std::string getFileLastModified(const std::string& fileName) const;
+
+    // 保存工作区配置到文件（JSON格式）
+    void saveWorkspaceConfig(const std::string& fileName, const WorkspaceMemento& memento);
+
+    // 从文件加载工作区配置（JSON格式）
+    std::shared_ptr<WorkspaceMemento> loadWorkspaceConfig(const std::string& fileName);
 
 private:
     // 递归构建目录树（字符串）

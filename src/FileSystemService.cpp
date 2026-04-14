@@ -1,4 +1,5 @@
 #include "FileSystemService.h"
+#include "WorkSpace.h"
 #include <fstream>
 #include <iostream>
 #include <algorithm>
@@ -318,4 +319,138 @@ std::shared_ptr<TreeNode> FileSystemService::buildDirectoryTreeStructure(const s
 #else
     return nullptr;
 #endif
+}
+
+// 辅助函数：分割字符串
+namespace {
+    std::vector<std::string> splitString(const std::string& str, char delimiter) {
+        std::vector<std::string> tokens;
+        std::stringstream ss(str);
+        std::string token;
+        while (std::getline(ss, token, delimiter)) {
+            tokens.push_back(token);
+        }
+        return tokens;
+    }
+
+    // 辅助函数：修剪字符串
+    std::string trim(const std::string& str) {
+        size_t start = str.find_first_not_of(" \t\r\n");
+        size_t end = str.find_last_not_of(" \t\r\n");
+        if (start == std::string::npos || end == std::string::npos) return "";
+        return str.substr(start, end - start + 1);
+    }
+}
+
+// 保存工作区配置到文件（简单文本格式）
+void FileSystemService::saveWorkspaceConfig(const std::string& fileName, const WorkspaceMemento& memento) {
+    safeExecute([this, &fileName, &memento]() {
+        std::ofstream file(fileName);
+        if (!file) {
+            throw std::runtime_error("无法写入配置文件: " + fileName);
+        }
+
+        // 写入openFiles（格式：openFiles: file1,file2,file3）
+        const auto& openFiles = memento.getOpenFiles();
+        file << "openFiles:";
+        for (size_t i = 0; i < openFiles.size(); ++i) {
+            file << openFiles[i];
+            if (i != openFiles.size() - 1) file << ",";
+        }
+        file << "\n";
+
+        // 写入activeFileName
+        file << "activeFileName: " << memento.getActiveFileName() << "\n";
+
+        // 写入fileModifiedStates（格式：fileModifiedStates: file1=true,file2=false）
+        const auto& modifiedStates = memento.getFileModifiedStates();
+        file << "fileModifiedStates:";
+        size_t count = 0;
+        for (const auto& pair : modifiedStates) {
+            file << pair.first << "=" << (pair.second ? "true" : "false");
+            if (++count < modifiedStates.size()) file << ",";
+        }
+        file << "\n";
+
+        // 写入logEnabled
+        file << "logEnabled: " << (memento.isLogEnabled() ? "true" : "false") << "\n";
+
+        file.close();
+    });
+}
+
+// 从文件加载工作区配置（简单文本格式）
+std::shared_ptr<WorkspaceMemento> FileSystemService::loadWorkspaceConfig(const std::string& fileName) {
+    return safeExecute([this, &fileName]() -> std::shared_ptr<WorkspaceMemento> {
+        // 如果文件不存在，返回空指针
+        if (!fileExists(fileName)) {
+            return nullptr;
+        }
+
+        std::ifstream file(fileName);
+        if (!file) {
+            throw std::runtime_error("无法打开配置文件: " + fileName);
+        }
+
+        std::vector<std::string> openFiles;
+        std::string activeFileName;
+        std::map<std::string, bool> fileModifiedStates;
+        bool logEnabled = false;
+
+        std::string line;
+        while (std::getline(file, line)) {
+            line = trim(line);
+            if (line.empty()) continue;
+
+            // 查找冒号位置
+            size_t colonPos = line.find(':');
+            if (colonPos == std::string::npos) {
+                // 无效行，跳过
+                continue;
+            }
+
+            std::string key = trim(line.substr(0, colonPos));
+            std::string value = trim(line.substr(colonPos + 1));
+
+            if (key == "openFiles") {
+                // 解析逗号分隔的文件列表
+                if (!value.empty()) {
+                    auto files = splitString(value, ',');
+                    for (const auto& file : files) {
+                        std::string trimmedFile = trim(file);
+                        if (!trimmedFile.empty()) {
+                            openFiles.push_back(trimmedFile);
+                        }
+                    }
+                }
+            } else if (key == "activeFileName") {
+                activeFileName = value;
+            } else if (key == "fileModifiedStates") {
+                // 解析逗号分隔的键值对（file=true格式）
+                if (!value.empty()) {
+                    auto pairs = splitString(value, ',');
+                    for (const auto& pair : pairs) {
+                        std::string trimmedPair = trim(pair);
+                        size_t equalPos = trimmedPair.find('=');
+                        if (equalPos != std::string::npos) {
+                            std::string fileKey = trim(trimmedPair.substr(0, equalPos));
+                            std::string boolValue = trim(trimmedPair.substr(equalPos + 1));
+                            if (boolValue == "true") {
+                                fileModifiedStates[fileKey] = true;
+                            } else if (boolValue == "false") {
+                                fileModifiedStates[fileKey] = false;
+                            }
+                        }
+                    }
+                }
+            } else if (key == "logEnabled") {
+                logEnabled = (value == "true");
+            }
+        }
+
+        file.close();
+
+        // 创建Memento
+        return std::make_shared<WorkspaceMemento>(openFiles, activeFileName, fileModifiedStates, logEnabled);
+    });
 }

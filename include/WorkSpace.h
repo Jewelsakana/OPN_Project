@@ -131,6 +131,10 @@ public:
     void requestExit();
     bool isExitRequested() const;
 
+    // 配置管理
+    void saveConfig(const std::string& configFile = ".editor_config");
+    bool loadConfig(const std::string& configFile = ".editor_config");
+
 private:
     DocumentManager documentManager_;              // 文档管理器
     FileSystemService fileSystemService_;          // 文件系统服务

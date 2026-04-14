@@ -127,12 +127,17 @@ public:
     // 检查是否有未保存的文件
     bool hasUnsavedFiles() const;
 
+    // 退出请求管理
+    void requestExit();
+    bool isExitRequested() const;
+
 private:
     DocumentManager documentManager_;              // 文档管理器
     FileSystemService fileSystemService_;          // 文件系统服务
     OutputService outputService_;                  // 输出服务
     LoggerManager loggerManager_;                  // 日志管理器
     bool logEnabled_;                              // 日志开关
+    bool exitRequested_;                          // 退出请求标志
     std::vector<std::shared_ptr<Observe>> observers_; // 观察者列表
 
     // 通知观察者

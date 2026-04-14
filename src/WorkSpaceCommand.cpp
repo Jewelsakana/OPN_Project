@@ -341,9 +341,9 @@ void ExitCommand::execute() {
     }
 
     // 所有文件已保存，可以退出
-    // 注意：实际退出程序应由上层调用者处理
-    // 这里只是标记可以退出
-    outputService.outputLine("ExitCommand: All files saved. Ready to exit.");
+    // 设置退出标志，由上层调用者处理实际退出
+    workspace_->requestExit();
+    outputService.outputLine("ExitCommand: All files saved. Exiting program...");
 }
 
 void ExitCommand::undo() {

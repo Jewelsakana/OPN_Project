@@ -39,7 +39,7 @@ bool WorkspaceMemento::isLogEnabled() const {
 
 // WorkSpace实现（重构为协调员）
 
-WorkSpace::WorkSpace() : logEnabled_(false), loggerManager_(fileSystemService_, *this) {
+WorkSpace::WorkSpace() : logEnabled_(false), exitRequested_(false), loggerManager_(fileSystemService_, *this) {
     // 构造函数：DocumentManager和FileSystemService会自动初始化
     // LoggerManager需要引用FileSystemService和WorkSpace
 }
@@ -369,4 +369,13 @@ void WorkSpace::notifySessionStart() {
     std::string timestamp = ss.str();
     Event event("session start at " + timestamp, "");
     notify(event);
+}
+
+// 退出请求管理
+void WorkSpace::requestExit() {
+    exitRequested_ = true;
+}
+
+bool WorkSpace::isExitRequested() const {
+    return exitRequested_;
 }

@@ -144,14 +144,14 @@ std::string FileSystemService::buildDirectoryTree(const std::string& path, const
             if (isLast) {
                 ss << "    ";
             } else {
-                ss << "|   ";
+                ss << "│   ";
             }
 
             // 连接符号
             if (lastItem) {
-                ss << "`-- ";
+                ss << "└── ";
             } else {
-                ss << "|-- ";
+                ss << "├── ";
             }
 
             // 条目名称
@@ -164,7 +164,7 @@ std::string FileSystemService::buildDirectoryTree(const std::string& path, const
                 if (isLast) {
                     newPrefix += "    ";
                 } else {
-                    newPrefix += "|   ";
+                    newPrefix += "│   ";
                 }
                 ss << buildDirectoryTree(entry.path().string(), newPrefix, lastItem);
             } else {

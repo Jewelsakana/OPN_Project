@@ -92,11 +92,11 @@ void OutputService::outputText(const std::string& text) {
 void OutputService::printTreeNode(const TreeNode& node, const std::string& prefix, bool isLast) {
     // 打印当前节点
     std::cout << prefix;
-    std::cout << (isLast ? "`-- " : "|-- ");
+    std::cout << (isLast ? "└── " : "├── ");
     std::cout << node.name << std::endl;
 
     // 构建子节点的前缀
-    std::string childPrefix = prefix + (isLast ? "    " : "|   ");
+    std::string childPrefix = prefix + (isLast ? "    " : "│   ");
 
     // 递归打印所有子节点
     for (size_t i = 0; i < node.children.size(); ++i) {

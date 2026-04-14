@@ -5,9 +5,18 @@
 #include <string>
 #include <stdexcept>
 
+#ifdef _WIN32
+#include <windows.h>
+#endif
+
 
 int main() {
     try {
+#ifdef _WIN32
+        // 设置控制台编码为UTF-8
+        SetConsoleOutputCP(CP_UTF8);
+        SetConsoleCP(CP_UTF8);
+#endif
         // 创建工作区
         WorkSpace workspace;
 

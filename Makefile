@@ -1,7 +1,7 @@
 # Makefile for Text Editor System
 # Compiler and flags
 CXX = g++
-CXXFLAGS = -std=c++17 -Wall -finput-charset=UTF-8 -fexec-charset=UTF-8
+CXXFLAGS = -std=c++17 -Wall -finput-charset=UTF-8 -fexec-charset=UTF-8 -Iinclude
 LDFLAGS =
 
 # Directories

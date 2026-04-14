@@ -20,6 +20,9 @@ int main() {
         // 创建工作区
         WorkSpace workspace;
 
+        // 发送会话开始通知
+        workspace.notifySessionStart();
+        
         // 创建命令控制器
         CommandController controller(&workspace);
 

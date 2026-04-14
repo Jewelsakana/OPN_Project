@@ -375,6 +375,15 @@ void FileSystemService::saveWorkspaceConfig(const std::string& fileName, const W
         // 写入logEnabled
         file << "logEnabled: " << (memento.isLogEnabled() ? "true" : "false") << "\n";
 
+        // 写入loggedFiles（格式：loggedFiles: file1,file2,file3）
+        const auto& loggedFiles = memento.getLoggedFiles();
+        file << "loggedFiles:";
+        for (size_t i = 0; i < loggedFiles.size(); ++i) {
+            file << loggedFiles[i];
+            if (i != loggedFiles.size() - 1) file << ",";
+        }
+        file << "\n";
+
         file.close();
     });
 }
@@ -396,6 +405,7 @@ std::shared_ptr<WorkspaceMemento> FileSystemService::loadWorkspaceConfig(const s
         std::string activeFileName;
         std::map<std::string, bool> fileModifiedStates;
         bool logEnabled = false;
+        std::vector<std::string> loggedFiles;
 
         std::string line;
         while (std::getline(file, line)) {
@@ -445,12 +455,23 @@ std::shared_ptr<WorkspaceMemento> FileSystemService::loadWorkspaceConfig(const s
                 }
             } else if (key == "logEnabled") {
                 logEnabled = (value == "true");
+            } else if (key == "loggedFiles") {
+                // 解析逗号分隔的日志文件列表
+                if (!value.empty()) {
+                    auto files = splitString(value, ',');
+                    for (const auto& file : files) {
+                        std::string trimmedFile = trim(file);
+                        if (!trimmedFile.empty()) {
+                            loggedFiles.push_back(trimmedFile);
+                        }
+                    }
+                }
             }
         }
 
         file.close();
 
         // 创建Memento
-        return std::make_shared<WorkspaceMemento>(openFiles, activeFileName, fileModifiedStates, logEnabled);
+        return std::make_shared<WorkspaceMemento>(openFiles, activeFileName, fileModifiedStates, logEnabled, loggedFiles);
     });
 }

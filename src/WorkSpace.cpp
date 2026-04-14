@@ -8,17 +8,20 @@
 #include <iostream>
 #include <sstream>
 #include <iomanip>
+#include <set>
 
 // WorkspaceMemento实现（保持不变，用于向后兼容）
 
 WorkspaceMemento::WorkspaceMemento(const std::vector<std::string>& openFiles,
                                    const std::string& activeFileName,
                                    const std::map<std::string, bool>& fileModifiedStates,
-                                   bool logEnabled)
+                                   bool logEnabled,
+                                   const std::vector<std::string>& loggedFiles)
     : openFiles_(openFiles),
       activeFileName_(activeFileName),
       fileModifiedStates_(fileModifiedStates),
-      logEnabled_(logEnabled) {
+      logEnabled_(logEnabled),
+      loggedFiles_(loggedFiles) {
 }
 
 const std::vector<std::string>& WorkspaceMemento::getOpenFiles() const {
@@ -35,6 +38,10 @@ const std::map<std::string, bool>& WorkspaceMemento::getFileModifiedStates() con
 
 bool WorkspaceMemento::isLogEnabled() const {
     return logEnabled_;
+}
+
+const std::vector<std::string>& WorkspaceMemento::getLoggedFiles() const {
+    return loggedFiles_;
 }
 
 // WorkSpace实现（重构为协调员）
@@ -116,7 +123,10 @@ std::shared_ptr<WorkspaceMemento> WorkSpace::createMemento() const {
     auto activeFileName = documentManager_.getActiveFileName();
     auto modifiedStates = documentManager_.getAllModifiedStates();
 
-    return std::make_shared<WorkspaceMemento>(openFiles, activeFileName, modifiedStates, logEnabled_);
+    // 获取当前正在记录日志的文件列表
+    auto loggedFiles = loggerManager_.getLoggedFiles();
+
+    return std::make_shared<WorkspaceMemento>(openFiles, activeFileName, modifiedStates, logEnabled_, loggedFiles);
 }
 
 void WorkSpace::restoreFromMemento(const WorkspaceMemento& memento) {
@@ -146,6 +156,37 @@ void WorkSpace::restoreFromMemento(const WorkspaceMemento& memento) {
 
     // 恢复日志开关
     logEnabled_ = memento.isLogEnabled();
+
+    // 恢复正在记录日志的文件
+    const auto& loggedFiles = memento.getLoggedFiles();
+    std::set<std::string> loggedFilesSet(loggedFiles.begin(), loggedFiles.end());
+
+    for (const auto& fileName : loggedFiles) {
+        if (documentManager_.isFileOpen(fileName)) {
+            startLoggingForFile(fileName);
+        }
+    }
+
+    // 检查其他打开的文件是否有"# log"标记（自动启动日志）
+    for (const auto& fileName : openFiles) {
+        // 如果已经启动了日志，跳过
+        if (loggedFilesSet.find(fileName) != loggedFilesSet.end()) {
+            continue;
+        }
+
+        // 检查文件是否存在且第一行有"# log"
+        if (fileSystemService_.fileExists(fileName)) {
+            try {
+                auto lines = fileSystemService_.loadFile(fileName);
+                if (!lines.empty() && lines[0] == "# log") {
+                    startLoggingForFile(fileName);
+                }
+            } catch (const std::exception& e) {
+                // 文件读取失败，跳过这个文件
+                outputService_.outputError("Warning: Failed to check #log in " + fileName + ": " + e.what());
+            }
+        }
+    }
 
     // 通知观察者工作区恢复
     // Event event("restore", "");

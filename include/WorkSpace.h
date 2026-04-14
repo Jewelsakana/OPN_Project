@@ -29,7 +29,8 @@ public:
     WorkspaceMemento(const std::vector<std::string>& openFiles,
                      const std::string& activeFileName,
                      const std::map<std::string, bool>& fileModifiedStates,
-                     bool logEnabled);
+                     bool logEnabled,
+                     const std::vector<std::string>& loggedFiles = {});
 
     // 获取打开的文件列表（文件名）
     const std::vector<std::string>& getOpenFiles() const;
@@ -43,11 +44,15 @@ public:
     // 获取日志开关状态
     bool isLogEnabled() const;
 
+    // 获取正在记录日志的文件列表
+    const std::vector<std::string>& getLoggedFiles() const;
+
 private:
     std::vector<std::string> openFiles_;           // 打开的文件名列表
     std::string activeFileName_;                   // 活动文件名
     std::map<std::string, bool> fileModifiedStates_; // 文件修改状态
     bool logEnabled_;                              // 日志开关状态
+    std::vector<std::string> loggedFiles_;         // 正在记录日志的文件列表
 };
 
 // WorkSpace类：作为协调员，管理工作区状态，委托给DocumentManager和FileSystemService

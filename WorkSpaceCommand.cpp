@@ -136,6 +136,9 @@ void CloseCommand::execute() {
         throw std::runtime_error("CloseCommand: File '" + targetFile + "' has been modified. Please save before closing.");
     }
 
+    // 停止日志记录（如果正在记录）
+    workspace_->stopLoggingForFile(targetFile);
+
     // 关闭文件
     workspace_->closeFile(targetFile);
 }

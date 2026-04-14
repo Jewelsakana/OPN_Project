@@ -60,6 +60,17 @@ void FileSystemService::saveFile(const std::string& fileName, const std::vector<
     });
 }
 
+void FileSystemService::appendToFile(const std::string& fileName, const std::string& content) {
+    safeExecute([this, &fileName, &content]() {
+        std::ofstream file(fileName, std::ios::app); // 追加模式
+        if (!file) {
+            throw std::runtime_error("无法追加到文件: " + fileName);
+        }
+        file << content;
+        file.close();
+    });
+}
+
 bool FileSystemService::fileExists(const std::string& fileName) const {
 #if HAS_FILESYSTEM
     return fs::exists(fileName);

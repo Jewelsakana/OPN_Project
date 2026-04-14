@@ -65,7 +65,10 @@ enum class WorkSpaceCommandType {
     DirTree,
     Undo,
     Redo,
-    Exit
+    Exit,
+    Logon,
+    Logoff,
+    Logshow
 };
 
 // ParsedCommand：解析后的命令信息，不包含具体Command对象

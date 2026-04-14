@@ -1,10 +1,13 @@
 #include "WorkSpace.h"
 #include "TextEditor.h"
 #include "TextEngine.h"
+#include "Logger.h"
 #include <algorithm>
 #include <stdexcept>
 #include <fstream>
 #include <iostream>
+#include <sstream>
+#include <iomanip>
 
 // WorkspaceMemento实现（保持不变，用于向后兼容）
 
@@ -204,6 +207,11 @@ void WorkSpace::loadFile(const std::string& fileName) {
     if (documentManager_.getActiveFileName().empty()) {
         documentManager_.setActiveFile(fileName);
     }
+
+    // 检查文件第一行是否为 "#log"，如果是则自动启动日志记录
+    if (fileExisted && !lines.empty() && lines[0] == "# log") {
+        startLoggingForFile(fileName);
+    }
 }
 
 void WorkSpace::saveFile(const std::string& fileName) {
@@ -268,6 +276,11 @@ void WorkSpace::initFile(const std::string& fileName, bool withLog) {
 
     // 设置为活动文件
     documentManager_.setActiveFile(fileName);
+
+    // 如果指定了with-log，则自动启动日志记录
+    if (withLog) {
+        startLoggingForFile(fileName);
+    }
 }
 
 // 获取目录树（字符串表示）
@@ -303,10 +316,52 @@ bool WorkSpace::hasUnsavedFiles() const {
     return documentManager_.hasUnsavedFiles();
 }
 
+// 文件日志管理
+void WorkSpace::startLoggingForFile(const std::string& fileName) {
+    if (fileLoggers_.find(fileName) != fileLoggers_.end()) {
+        // 日志记录器已存在
+        return;
+    }
+    // 创建新的日志记录器
+    auto logger = std::make_shared<FileLogger>(fileName, fileSystemService_);
+    fileLoggers_[fileName] = logger;
+    attach(logger);
+    // 可选：记录日志启动事件
+    // Event event("log-on", fileName);
+    // notify(event);
+}
+
+void WorkSpace::stopLoggingForFile(const std::string& fileName) {
+    auto it = fileLoggers_.find(fileName);
+    if (it != fileLoggers_.end()) {
+        detach(it->second);
+        fileLoggers_.erase(it);
+        // 可选：记录日志停止事件
+        // Event event("log-off", fileName);
+        // notify(event);
+    }
+}
+
+bool WorkSpace::isLoggingForFile(const std::string& fileName) const {
+    return fileLoggers_.find(fileName) != fileLoggers_.end();
+}
+
 // 创建TextEditor实例
 std::shared_ptr<TextEditor> WorkSpace::createTextEditor() const {
     auto editor = std::make_shared<TextEditor>();
     auto textEngine = std::make_shared<TextEngine>();
     editor->setTextEngine(textEngine);
     return editor;
+}
+
+// 会话开始通知
+void WorkSpace::notifySessionStart() {
+    auto now = std::chrono::system_clock::now();
+    auto time = std::chrono::system_clock::to_time_t(now);
+    std::tm tm = *std::localtime(&time);
+    std::stringstream ss;
+    ss << std::put_time(&tm, "%Y-%m-%d %H:%M:%S");
+    std::string timestamp = ss.str();
+    Event event("session start at " + timestamp, "");
+    notify(event);
 }

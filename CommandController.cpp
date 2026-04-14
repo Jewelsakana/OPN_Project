@@ -2,8 +2,10 @@
 #include "WorkSpace.h"
 #include "TextEditor.h"
 #include "WorkSpaceCommand.h"
+#include "LogCommand.h"
 #include "TextCommands.h"
 #include "OutputService.h"
+#include "Event.h"
 #include <stdexcept>
 #include <memory>
 
@@ -22,6 +24,22 @@ void CommandController::parseAndExecuteCommand(const std::string& commandString)
         auto command = createCommandFromParsed(parsed);
         if (command) {
             executeCommand(std::move(command));
+            // 命令执行成功，记录事件
+            std::string targetFileName;
+            if (parsed.type == CommandType::WorkSpaceCommand) {
+                // 工作区命令：如果有文件名参数则使用，否则为空
+                if (parsed.fileName) {
+                    targetFileName = *parsed.fileName;
+                } else {
+                    // 对于没有文件名的工作区命令，使用空字符串
+                    targetFileName = "";
+                }
+            } else { // EditorCommand
+                // 编辑器命令：目标文件是当前活动文件
+                targetFileName = workspace_->getActiveFileName();
+            }
+            Event event(commandString, targetFileName);
+            workspace_->notify(event);
         } else {
             throw std::runtime_error("Failed to create command from parsed data");
         }
@@ -82,6 +100,24 @@ std::unique_ptr<Command> CommandController::createCommandFromParsed(const Parsed
                 return std::unique_ptr<Command>(new RedoCommand());
             case WorkSpaceCommandType::Exit:
                 return std::unique_ptr<Command>(new ExitCommand());
+            case WorkSpaceCommandType::Logon:
+                if (parsed.fileName) {
+                    return std::unique_ptr<Command>(new LogonCommand(*parsed.fileName));
+                } else {
+                    return std::unique_ptr<Command>(new LogonCommand(""));
+                }
+            case WorkSpaceCommandType::Logoff:
+                if (parsed.fileName) {
+                    return std::unique_ptr<Command>(new LogoffCommand(*parsed.fileName));
+                } else {
+                    return std::unique_ptr<Command>(new LogoffCommand(""));
+                }
+            case WorkSpaceCommandType::Logshow:
+                if (parsed.fileName) {
+                    return std::unique_ptr<Command>(new LogshowCommand(*parsed.fileName));
+                } else {
+                    return std::unique_ptr<Command>(new LogshowCommand(""));
+                }
         }
     } else if (parsed.type == CommandType::EditorCommand) {
         // 获取当前活动编辑器

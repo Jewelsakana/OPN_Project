@@ -30,6 +30,10 @@ public:
     // 参数：fileName - 文件名，lines - 要保存的行内容
     void saveFile(const std::string& fileName, const std::vector<std::string>& lines);
 
+    // 追加内容到文件（用于日志记录）
+    // 参数：fileName - 文件名，content - 要追加的内容
+    void appendToFile(const std::string& fileName, const std::string& content);
+
     // 检查文件是否存在
     bool fileExists(const std::string& fileName) const;
 

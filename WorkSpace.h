@@ -18,6 +18,7 @@
 // 前向声明
 // class Editor; // 已经包含
 // class Observe;
+class FileLogger;
 // class Event;
 
 // WorkspaceMemento类：用于保存和恢复工作区状态
@@ -82,6 +83,14 @@ public:
     void setLogEnabled(bool enabled);
     bool isLogEnabled() const;
 
+    // 文件日志管理
+    void startLoggingForFile(const std::string& fileName);
+    void stopLoggingForFile(const std::string& fileName);
+    bool isLoggingForFile(const std::string& fileName) const;
+
+    // 会话开始通知
+    void notifySessionStart();
+
     // 备忘录模式：保存和恢复状态
     std::shared_ptr<WorkspaceMemento> createMemento() const;
     void restoreFromMemento(const WorkspaceMemento& memento);
@@ -120,6 +129,7 @@ private:
     OutputService outputService_;                  // 输出服务
     bool logEnabled_;                              // 日志开关
     std::vector<std::shared_ptr<Observe>> observers_; // 观察者列表
+    std::map<std::string, std::shared_ptr<FileLogger>> fileLoggers_; // 文件日志记录器映射
 
     // 通知观察者
     void notifyObservers(const Event& event);

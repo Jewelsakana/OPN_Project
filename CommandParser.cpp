@@ -48,7 +48,7 @@ ParsedCommand CommandParser::parse(const std::string& commandString) {
     if (commandName == "load" || commandName == "save" || commandName == "init" ||
         commandName == "close" || commandName == "edit" || commandName == "editor-list" ||
         commandName == "dir-tree" || commandName == "undo" || commandName == "redo" ||
-        commandName == "exit") {
+        commandName == "exit" || commandName == "log-on" || commandName == "log-off" || commandName == "log-show") {
         return parseWorkSpaceCommand(commandName, tokens);
     } else if (commandName == "append" || commandName == "insert" || commandName == "delete" ||
                commandName == "replace" || commandName == "show") {
@@ -271,6 +271,27 @@ ParsedCommand CommandParser::parseWorkSpaceCommand(const std::string& command, c
             throw CommandFormatException("exit", "exit");
         }
         parsed.workSpaceType = WorkSpaceCommandType::Exit;
+        return parsed;
+    }
+    else if (command == "log-on") {
+        parsed.workSpaceType = WorkSpaceCommandType::Logon;
+        if (tokens.size() > 1) {
+            parsed.fileName = tokens[1];
+        }
+        return parsed;
+    }
+    else if (command == "log-off") {
+        parsed.workSpaceType = WorkSpaceCommandType::Logoff;
+        if (tokens.size() > 1) {
+            parsed.fileName = tokens[1];
+        }
+        return parsed;
+    }
+    else if (command == "log-show") {
+        parsed.workSpaceType = WorkSpaceCommandType::Logshow;
+        if (tokens.size() > 1) {
+            parsed.fileName = tokens[1];
+        }
         return parsed;
     }
 

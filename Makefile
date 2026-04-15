@@ -37,16 +37,21 @@ $(BUILD_DIR)/%.o: $(SRC_DIR)/%.cpp
 clean:
 	rm -rf $(BUILD_DIR) $(TARGET)
 
-# Run tests
+# 定义测试所需的依赖项（排除 main.o）
+TEST_DEPS = $(filter-out $(BUILD_DIR)/main.o, $(OBJS))
+
 test: all
 	@echo "Running tests..."
-	@for test in $(TESTS_DIR)/test_*.cpp; do \
-		test_name=$$(basename $$test .cpp); \
+	@for test_src in $(wildcard $(TESTS_DIR)/*.cpp); do \
+		test_name=$$(basename $$test_src .cpp); \
+		echo "---------------------------------------"; \
 		echo "Building $$test_name..."; \
-		$(CXX) $(CXXFLAGS) -I. $$test -o $(BUILD_DIR)/$$test_name 2>&1 | grep -v "warning: " || true; \
+		$(CXX) $(CXXFLAGS) -I. $$test_src $(TEST_DEPS) -o $(BUILD_DIR)/$$test_name; \
 		echo "Running $$test_name..."; \
-		./$(BUILD_DIR)/$$test_name 2>&1; \
+		./$(BUILD_DIR)/$$test_name; \
 	done
+	@echo "---------------------------------------"
+	@echo "All tests execution finished."
 
 # Phony targets
 .PHONY: all clean test

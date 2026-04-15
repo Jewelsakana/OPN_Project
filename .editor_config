@@ -1,0 +1,5 @@
+openFiles:test1.txt,test2.txt
+activeFileName: test1.txt
+fileModifiedStates:test1.txt=false,test2.txt=false
+logEnabled: false
+loggedFiles:

@@ -8,6 +8,14 @@
 #include <string>
 #include <memory>
 
+// 位置值对象，封装行号和列号（均为1-based）
+struct Position {
+    int line;   // 行号（1-based）
+    int column; // 列号（1-based）
+
+    Position(int l, int c) : line(l), column(c) {}
+};
+
 // 基类：文本命令，持有TextEngine指针和文本行引用
 class TextCommand : public Command {
 public:
@@ -17,11 +25,16 @@ public:
 protected:
     std::vector<std::string>& lines;  // 引用文本行数组
     TextEngine* textEngine;           // TextEngine指针
+
+    // 记录指定位置将被删除的文本，用于undo
+    bool recordDeletedText(int row, int col, int length, std::string& deletedTextOut);
 };
 
 // InsertCommand类：插入文本命令
 class InsertCommand : public TextCommand {
 public:
+    InsertCommand(std::vector<std::string>& lines, TextEngine* engine,
+                  Position pos, const std::string& text);
     InsertCommand(std::vector<std::string>& lines, TextEngine* engine,
                   int row, int col, const std::string& text);
 
@@ -29,8 +42,7 @@ public:
     void undo() override;
 
 private:
-    int row;            // 行号（1-based）
-    int col;            // 列号（1-based）
+    Position pos;       // 插入位置
     std::string text;   // 要插入的文本
     int insertedLength; // 插入的文本长度（用于undo）
     int newLineCount;   // 插入文本中的换行符数量（即新添加的行数-1）
@@ -43,14 +55,15 @@ private:
 class DeleteCommand : public TextCommand {
 public:
     DeleteCommand(std::vector<std::string>& lines, TextEngine* engine,
+                  Position pos, int length);
+    DeleteCommand(std::vector<std::string>& lines, TextEngine* engine,
                   int row, int col, int length);
 
     void execute() override;
     void undo() override;
 
 private:
-    int row;            // 行号（1-based）
-    int col;            // 列号（1-based）
+    Position pos;       // 删除位置
     int length;         // 要删除的长度
     std::string deletedText; // 被删除的文本（用于undo）
     bool executed;      // 是否已执行过（用于防止重复undo）
@@ -99,14 +112,15 @@ private:
 class ReplaceCommand : public TextCommand {
 public:
     ReplaceCommand(std::vector<std::string>& lines, TextEngine* engine,
+                   Position pos, int deleteLength, const std::string& replaceText);
+    ReplaceCommand(std::vector<std::string>& lines, TextEngine* engine,
                    int row, int col, int deleteLength, const std::string& replaceText);
 
     void execute() override;
     void undo() override;
 
 private:
-    int row;                // 行号（1-based）
-    int col;                // 列号（1-based）
+    Position pos;           // 替换位置
     int deleteLength;       // 要删除的长度
     std::string replaceText;// 替换文本（可以为空）
     std::string deletedText;// 被删除的文本（用于undo）

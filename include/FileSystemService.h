@@ -7,10 +7,6 @@
 #include <vector>
 #include <memory>
 
-// 前向声明
-class TextEditor;
-class WorkspaceMemento;
-
 // FileSystemService类：负责文件系统操作，继承自Model基类
 class FileSystemService : public Model {
 public:
@@ -38,16 +34,6 @@ public:
     // 检查文件是否存在
     bool fileExists(const std::string& fileName) const;
 
-    // 获取目录树结构（字符串表示，用于向后兼容）
-    // 参数：path - 目录路径，为空时使用当前目录
-    // 返回：目录树的字符串表示
-    std::string getDirectoryTree(const std::string& path = "");
-
-    // 获取目录树结构（结构化数据）
-    // 参数：path - 目录路径，为空时使用当前目录
-    // 返回：目录树的根节点
-    std::shared_ptr<TreeNode> getDirectoryTreeStructure(const std::string& path = "");
-
     // 创建新文件（如果不存在）
     bool createFileIfNotExists(const std::string& fileName);
 
@@ -57,27 +43,10 @@ public:
     // 获取文件最后修改时间
     std::string getFileLastModified(const std::string& fileName) const;
 
-    // 保存工作区配置到文件（JSON格式）
-    void saveWorkspaceConfig(const std::string& fileName, const WorkspaceMemento& memento);
-
-    // 从文件加载工作区配置（JSON格式）
-    std::shared_ptr<WorkspaceMemento> loadWorkspaceConfig(const std::string& fileName);
-
-    // 重置（删除）配置文件，用于测试清理
-    bool resetConfig(const std::string& fileName);
 
 private:
-    // 递归构建目录树（字符串）
-    std::string buildDirectoryTree(const std::string& path, const std::string& prefix, bool isLast);
-
-    // 递归构建目录树（结构化数据）
-    std::shared_ptr<TreeNode> buildDirectoryTreeStructure(const std::string& path);
-
     // 异常处理重写
     void handleException(const std::exception& e) const override;
-
-    // 检查文件系统库可用性
-    bool isFilesystemAvailable() const;
 };
 
 #endif // FILESYSTEMSERVICE_H

@@ -156,8 +156,10 @@ void test_command_controller() {
         // 测试创建append命令
         ParsedCommand parsed;
         parsed.type = CommandType::EditorCommand;
-        parsed.editorType = EditorCommandType::Append;
-        parsed.text = "Hello World";
+        EditorParsedCommand ed;
+        ed.editorType = EditorCommandType::Append;
+        ed.text = "Hello World";
+        parsed.data = ed;
 
         auto cmd = controller.createCommandFromParsed(parsed);
         assert(cmd != nullptr);

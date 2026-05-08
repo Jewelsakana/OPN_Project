@@ -7,9 +7,12 @@
 #include <regex>
 #include <vector>
 #include <optional>
+#include <variant>
 
 // 前向声明
 class Command;
+class ICommandParserStrategy;
+using CommandParserStrategyPtr = std::unique_ptr<ICommandParserStrategy>;
 
 // CommandParser解析异常基类
 class CommandParseException : public std::runtime_error {
@@ -71,54 +74,61 @@ enum class WorkSpaceCommandType {
     Logshow
 };
 
-// ParsedCommand：解析后的命令信息，不包含具体Command对象
-// 只包含从字符串中提取的参数信息
-struct ParsedCommand {
-    CommandType type;
-
-    // 对于编辑器命令
+// 编辑器命令解析结果
+struct EditorParsedCommand {
     EditorCommandType editorType;
-    std::optional<int> line;      // 行号（1-based）
-    std::optional<int> column;    // 列号（1-based）
-    std::optional<int> length;    // 长度（用于delete/replace）
-    std::optional<std::string> text; // 文本内容
-    std::optional<int> startLine; // 起始行（用于show）
-    std::optional<int> endLine;   // 结束行（用于show）
-
-    // 对于工作区命令
-    WorkSpaceCommandType workSpaceType;
-    std::optional<std::string> fileName; // 文件名
-    std::optional<std::string> target;   // 目标（用于save等）
-    std::optional<std::string> path;     // 路径（用于dir-tree等）
-    std::optional<bool> withLog;         // with-log选项
+    std::optional<int> line;
+    std::optional<int> column;
+    std::optional<int> length;
+    std::optional<std::string> text;
+    std::optional<int> startLine;
+    std::optional<int> endLine;
 };
 
-// CommandParser类：解析原始字符串命令
+// 工作区命令解析结果
+struct WorkSpaceParsedCommand {
+    WorkSpaceCommandType workSpaceType;
+    std::optional<std::string> fileName;
+    std::optional<std::string> target;
+    std::optional<std::string> path;
+    std::optional<bool> withLog;
+};
+
+// ParsedCommand：使用variant按命令类型分离字段
+struct ParsedCommand {
+    CommandType type;
+    std::variant<EditorParsedCommand, WorkSpaceParsedCommand> data;
+
+    EditorParsedCommand* asEditor() {
+        return std::get_if<EditorParsedCommand>(&data);
+    }
+    WorkSpaceParsedCommand* asWorkSpace() {
+        return std::get_if<WorkSpaceParsedCommand>(&data);
+    }
+    const EditorParsedCommand* asEditor() const {
+        return std::get_if<EditorParsedCommand>(&data);
+    }
+    const WorkSpaceParsedCommand* asWorkSpace() const {
+        return std::get_if<WorkSpaceParsedCommand>(&data);
+    }
+};
+
+// CommandParser类：解析原始字符串命令（使用策略模式）
 class CommandParser {
 public:
-    CommandParser() = default;
-    ~CommandParser() = default;
+    CommandParser();
+    ~CommandParser();
 
     // 解析命令字符串，返回ParsedCommand对象
-    // 参数：原始命令字符串
-    // 返回值：解析后的命令信息，包含命令类型和参数
     ParsedCommand parse(const std::string& commandString);
 
-    // 可以添加其他辅助方法，如判断命令类型等
 private:
-    // 辅助方法：解析编辑器命令
-    ParsedCommand parseEditorCommand(const std::string& command, const std::vector<std::string>& tokens);
+    std::vector<CommandParserStrategyPtr> strategies_;
 
-    // 辅助方法：解析工作区命令
-    ParsedCommand parseWorkSpaceCommand(const std::string& command, const std::vector<std::string>& tokens);
+    // 注册所有命令解析策略
+    void registerStrategies();
 
-    // 辅助方法：解析带引号的文本参数
-    std::string parseQuotedText(const std::string& text);
-
-    // 辅助方法：处理转义字符
-    std::string processEscapeSequences(const std::string& text);
-
-    // 辅助方法：分割命令行参数
+    // 分割命令行参数
     std::vector<std::string> splitCommandLine(const std::string& commandString);
 };
 

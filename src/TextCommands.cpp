@@ -6,16 +6,36 @@ TextCommand::TextCommand(std::vector<std::string>& lines, TextEngine* engine)
     , textEngine(engine) {
 }
 
+bool TextCommand::recordDeletedText(int row, int col, int length, std::string& deletedTextOut) {
+    if (row >= 1 && row <= static_cast<int>(lines.size())) {
+        const std::string& line = lines[row - 1];
+        if (col >= 1 && col <= static_cast<int>(line.length()) + 1) {
+            int startIdx = col - 1;
+            int endIdx = std::min(startIdx + length, static_cast<int>(line.length()));
+            if (startIdx < endIdx) {
+                deletedTextOut = line.substr(startIdx, endIdx - startIdx);
+                return true;
+            }
+        }
+    }
+    deletedTextOut = "";
+    return false;
+}
+
 // InsertCommand实现
 InsertCommand::InsertCommand(std::vector<std::string>& lines, TextEngine* engine,
-                             int row, int col, const std::string& text)
+                             Position pos, const std::string& text)
     : TextCommand(lines, engine)
-    , row(row)
-    , col(col)
+    , pos(pos)
     , text(text)
     , insertedLength(0)
     , newLineCount(0)
     , isMultiLineInsert(false) {
+}
+
+InsertCommand::InsertCommand(std::vector<std::string>& lines, TextEngine* engine,
+                             int row, int col, const std::string& text)
+    : InsertCommand(lines, engine, Position(row, col), text) {
 }
 
 void InsertCommand::execute() {
@@ -31,11 +51,11 @@ void InsertCommand::execute() {
     isMultiLineInsert = (newLineCount > 0);
 
     // 记录插入前的状态
-    if (row >= 1 && row <= static_cast<int>(lines.size())) {
-        const std::string& currentLine = lines[row - 1];
-        if (col >= 1 && col <= static_cast<int>(currentLine.length()) + 1) {
+    if (pos.line >= 1 && pos.line <= static_cast<int>(lines.size())) {
+        const std::string& currentLine = lines[pos.line - 1];
+        if (pos.column >= 1 && pos.column <= static_cast<int>(currentLine.length()) + 1) {
             // 计算0-based索引
-            int startIdx = col - 1;
+            int startIdx = pos.column - 1;
             beforeInsert = currentLine.substr(0, startIdx);
             afterInsert = currentLine.substr(startIdx);
         }
@@ -45,7 +65,7 @@ void InsertCommand::execute() {
     insertedLength = static_cast<int>(text.length());
 
     // 调用TextEngine插入文本
-    textEngine->insert(lines, row, col, text);
+    textEngine->insert(lines, pos.line, pos.column, text);
 }
 
 void InsertCommand::undo() {
@@ -60,7 +80,7 @@ void InsertCommand::undo() {
         int addedLines = newLineCount + 1;
 
         // 计算0-based的行索引
-        int targetRow = row - 1;  // 原始行号（0-based）
+        int targetRow = pos.line - 1;  // 原始行号（0-based）
 
         // 检查边界
         if (targetRow >= static_cast<int>(lines.size())) {
@@ -71,8 +91,6 @@ void InsertCommand::undo() {
         std::string originalLine = beforeInsert + afterInsert;
 
         // 删除新增的行（从targetRow开始，删除addedLines行）
-        // 注意：插入后，原来的第row行被替换成了addedLines行
-        // 所以我们需要删除从targetRow开始的addedLines行
         if (targetRow + addedLines <= static_cast<int>(lines.size())) {
             // 删除从targetRow开始的addedLines行
             lines.erase(lines.begin() + targetRow, lines.begin() + targetRow + addedLines);
@@ -83,19 +101,23 @@ void InsertCommand::undo() {
     } else {
         // 单行插入的撤销：删除插入的文本
         if (insertedLength > 0) {
-            textEngine->deleteText(lines, row, col, insertedLength);
+            textEngine->deleteText(lines, pos.line, pos.column, insertedLength);
         }
     }
 }
 
 // DeleteCommand实现
 DeleteCommand::DeleteCommand(std::vector<std::string>& lines, TextEngine* engine,
-                             int row, int col, int length)
+                             Position pos, int length)
     : TextCommand(lines, engine)
-    , row(row)
-    , col(col)
+    , pos(pos)
     , length(length)
     , executed(false) {
+}
+
+DeleteCommand::DeleteCommand(std::vector<std::string>& lines, TextEngine* engine,
+                             int row, int col, int length)
+    : DeleteCommand(lines, engine, Position(row, col), length) {
 }
 
 void DeleteCommand::execute() {
@@ -104,31 +126,17 @@ void DeleteCommand::execute() {
     }
 
     // 在执行删除前，先记录被删除的文本
-    // 需要获取当前行的内容，提取要删除的部分
-    if (row >= 1 && row <= static_cast<int>(lines.size())) {
-        const std::string& line = lines[row - 1];
-        if (col >= 1 && col <= static_cast<int>(line.length()) + 1) {
-            // 计算0-based索引
-            int startIdx = col - 1;
-            int endIdx = std::min(startIdx + length, static_cast<int>(line.length()));
-
-            if (startIdx < endIdx) {
-                deletedText = line.substr(startIdx, endIdx - startIdx);
-            } else {
-                deletedText = "";
-            }
-        }
-    }
+    recordDeletedText(pos.line, pos.column, length, deletedText);
 
     // 执行删除
-    textEngine->deleteText(lines, row, col, length);
+    textEngine->deleteText(lines, pos.line, pos.column, length);
     executed = true;
 }
 
 void DeleteCommand::undo() {
     // 撤销删除：将删除的文本插回原处
     if (!deletedText.empty()) {
-        textEngine->insert(lines, row, col, deletedText);
+        textEngine->insert(lines, pos.line, pos.column, deletedText);
     } else if (executed) {
         // 即使删除的是空字符串，也需要标记为已撤销
         // 这里什么也不做
@@ -196,13 +204,17 @@ std::string ShowCommand::getResult() const {
 
 // ReplaceCommand实现
 ReplaceCommand::ReplaceCommand(std::vector<std::string>& lines, TextEngine* engine,
-                               int row, int col, int deleteLength, const std::string& replaceText)
+                               Position pos, int deleteLength, const std::string& replaceText)
     : TextCommand(lines, engine)
-    , row(row)
-    , col(col)
+    , pos(pos)
     , deleteLength(deleteLength)
     , replaceText(replaceText)
     , executed(false) {
+}
+
+ReplaceCommand::ReplaceCommand(std::vector<std::string>& lines, TextEngine* engine,
+                               int row, int col, int deleteLength, const std::string& replaceText)
+    : ReplaceCommand(lines, engine, Position(row, col), deleteLength, replaceText) {
 }
 
 void ReplaceCommand::execute() {
@@ -210,28 +222,15 @@ void ReplaceCommand::execute() {
         return; // 防止重复执行
     }
 
-    // 先执行删除，记录被删除的文本
-    if (row >= 1 && row <= static_cast<int>(lines.size())) {
-        const std::string& line = lines[row - 1];
-        if (col >= 1 && col <= static_cast<int>(line.length()) + 1) {
-            // 计算0-based索引
-            int startIdx = col - 1;
-            int endIdx = std::min(startIdx + deleteLength, static_cast<int>(line.length()));
-
-            if (startIdx < endIdx) {
-                deletedText = line.substr(startIdx, endIdx - startIdx);
-            } else {
-                deletedText = "";
-            }
-        }
-    }
+    // 先记录被删除的文本
+    recordDeletedText(pos.line, pos.column, deleteLength, deletedText);
 
     // 执行删除
-    textEngine->deleteText(lines, row, col, deleteLength);
+    textEngine->deleteText(lines, pos.line, pos.column, deleteLength);
 
     // 再执行插入（替换文本可以为空）
     if (!replaceText.empty()) {
-        textEngine->insert(lines, row, col, replaceText);
+        textEngine->insert(lines, pos.line, pos.column, replaceText);
     }
 
     executed = true;
@@ -244,12 +243,12 @@ void ReplaceCommand::undo() {
         if (!replaceText.empty()) {
             // 计算替换文本的长度
             int replaceLength = static_cast<int>(replaceText.length());
-            textEngine->deleteText(lines, row, col, replaceLength);
+            textEngine->deleteText(lines, pos.line, pos.column, replaceLength);
         }
 
         // 恢复被删除的文本
         if (!deletedText.empty()) {
-            textEngine->insert(lines, row, col, deletedText);
+            textEngine->insert(lines, pos.line, pos.column, deletedText);
         }
 
         executed = false;

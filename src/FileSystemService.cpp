@@ -6,6 +6,7 @@
 #include <chrono>
 #include <iomanip>
 #include <sstream>
+#include <cstdio>
 
 // 尝试使用filesystem库
 #if __has_include(<filesystem>) && (!defined(__GNUC__) || __GNUC__ >= 9)
@@ -473,5 +474,32 @@ std::shared_ptr<WorkspaceMemento> FileSystemService::loadWorkspaceConfig(const s
 
         // 创建Memento
         return std::make_shared<WorkspaceMemento>(openFiles, activeFileName, fileModifiedStates, logEnabled, loggedFiles);
+    });
+}
+
+bool FileSystemService::resetConfig(const std::string& fileName) {
+    return safeExecute([this, &fileName]() -> bool {
+#if HAS_FILESYSTEM
+        try {
+            if (fs::exists(fileName)) {
+                return fs::remove(fileName);
+            }
+            return true; // 文件不存在，视为重置成功
+        } catch (const fs::filesystem_error&) {
+            return false; // 删除失败
+        }
+#else
+        // 回退方案：使用C库remove函数
+        if (std::remove(fileName.c_str()) == 0) {
+            return true;
+        } else {
+            // 检查文件是否存在，如果不存在则视为成功
+            std::ifstream file(fileName);
+            if (!file.good()) {
+                return true;
+            }
+            return false;
+        }
+#endif
     });
 }

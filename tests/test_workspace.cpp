@@ -4,6 +4,7 @@
 #include <iostream>
 #include <cassert>
 #include <memory>
+#include <cstdio>
 
 void test_basic_functionality() {
     std::cout << "Testing WorkSpace basic functionality..." << std::endl;
@@ -348,6 +349,8 @@ void test_more_workspace_commands() {
 int main() {
     std::cout << "Starting WorkSpace tests..." << std::endl << std::endl;
 
+    int result = 0;
+
     try {
         test_basic_functionality();
         test_observer_attachment();
@@ -356,9 +359,39 @@ int main() {
         test_more_workspace_commands();
 
         std::cout << "All WorkSpace tests passed!" << std::endl;
-        return 0;
+        result = 0;
     } catch (const std::exception& e) {
         std::cerr << "Test failed with exception: " << e.what() << std::endl;
-        return 1;
+        result = 1;
     }
+
+    // 清理测试残留文件
+    const char* configFile = ".editor_config";
+    if (std::remove(configFile) == 0) {
+        std::cout << "Cleaned up config file: " << configFile << std::endl;
+    }
+
+    // 清理其他可能的测试文件
+    const char* testFiles[] = {
+        "test1.txt", "test2.txt", "test3.txt", "test.txt", "output.txt",
+        "newfile.txt", "another.txt", "newbuffer.txt"
+    };
+    for (const char* fileName : testFiles) {
+        if (std::remove(fileName) == 0) {
+            std::cout << "Cleaned up test file: " << fileName << std::endl;
+        }
+    }
+
+    // 清理可能的日志文件
+    const char* logFiles[] = {
+        ".test1.txt.log", ".test2.txt.log", ".test3.txt.log", ".test.txt.log",
+        ".output.txt.log", ".newfile.txt.log", ".another.txt.log", ".newbuffer.txt.log"
+    };
+    for (const char* logFile : logFiles) {
+        if (std::remove(logFile) == 0) {
+            std::cout << "Cleaned up log file: " << logFile << std::endl;
+        }
+    }
+
+    return result;
 }

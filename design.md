@@ -128,6 +128,8 @@ classDiagram
     
     LoggerManager *-- FileLogger
     WorkSpace ..> Event : notify
+    FileLogger --> FileSystemService : depends
+    DocumentManager ..> Editor : manages
 ```
 #### 1.2 模块职责说明
 1. **用户界面层**
@@ -182,6 +184,8 @@ classDiagram
    - `CommandController`依赖所有具体命令，但通过抽象接口隔离
    - `TextEditor`依赖`TextEngine`执行核心算法，保持逻辑分离
    - `WorkSpace`通过`DocumentManager`管理文件状态，通过`FileSystemService`访问文件系统
+   - `FileLogger`依赖`FileSystemService`进行日志文件的读写操作
+   - `DocumentManager`通过`Editor`接口管理编辑器实例，实现具体编辑器类型的解耦
    - 日志模块作为观察者，被动接收事件通知，不主动调用业务逻辑  
 ### 2.核心设计  
 

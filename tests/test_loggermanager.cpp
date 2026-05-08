@@ -4,6 +4,10 @@
 #include <iostream>
 #include <cassert>
 #include <algorithm>
+#include <cstdio>
+#include <filesystem>
+
+namespace fs = std::filesystem;
 
 // 测试LoggerManager基本功能
 void testLoggerManagerBasic() {
@@ -113,6 +117,12 @@ void testLoggerManagerFileIntegration() {
     assert(workspace.getObserverCount() == 0);
 
     std::cout << "File integration test passed." << std::endl;
+
+    // 清理测试文件
+    if (fs::exists("integration.txt")) fs::remove("integration.txt");
+    if (fs::exists(".integration.txt.log")) fs::remove(".integration.txt.log");
+    if (fs::exists(".test1.txt.log")) fs::remove(".test1.txt.log");
+    if (fs::exists(".test2.txt.log")) fs::remove(".test2.txt.log");
 }
 
 int main() {

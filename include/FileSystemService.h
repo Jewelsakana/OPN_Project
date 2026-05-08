@@ -63,6 +63,9 @@ public:
     // 从文件加载工作区配置（JSON格式）
     std::shared_ptr<WorkspaceMemento> loadWorkspaceConfig(const std::string& fileName);
 
+    // 重置（删除）配置文件，用于测试清理
+    bool resetConfig(const std::string& fileName);
+
 private:
     // 递归构建目录树（字符串）
     std::string buildDirectoryTree(const std::string& path, const std::string& prefix, bool isLast);

@@ -178,10 +178,6 @@ void testModelIntegration() {
 
     OutputService outputService;
 
-    // 测试getName方法
-    assert(outputService.getName() == "OutputService");
-    printTestResult("Get service name", true);
-
     // 测试isValid方法（OutputService应该始终有效）
     assert(outputService.isValid());
     printTestResult("Service is valid", true);

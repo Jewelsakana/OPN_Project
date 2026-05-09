@@ -22,7 +22,6 @@
 #include "FileCoordinator.h"
 #include "EditorCoordinator.h"
 #include "LogCoordinator.h"
-#include "ConfigCoordinator.h"
 
 class LoggerManager;
 
@@ -100,6 +99,12 @@ public:
     // 文件信息列表（委托给EditorCoordinator）
     std::vector<FileInfo> getFileInfoList() const;
 
+    // 统一输出接口（Facade封装）
+    void outputError(const std::string& message);
+    void outputLine(const std::string& message);
+    void outputList(const std::vector<FileInfo>& files);
+    void outputTree(const TreeNode& root);
+
     // 获取服务引用
     DocumentManager& getDocumentManager();
     FileSystemService& getFileSystemService();
@@ -131,7 +136,6 @@ private:
     EditorCoordinator editorCoordinator_;
     FileCoordinator fileCoordinator_;
     LogCoordinator logCoordinator_;
-    ConfigCoordinator configCoordinator_;
 
     // 状态变量
     bool exitRequested_;

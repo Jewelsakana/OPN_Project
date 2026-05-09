@@ -19,7 +19,7 @@ void testBasicFunctionality() {
     DocumentManager manager;
 
     // 测试初始状态
-    assert(manager.getOpenFileCount() == 0);
+    assert(manager.getOpenFiles().size() == 0);
     assert(manager.getActiveFileName().empty());
     assert(manager.getActiveEditor() == nullptr);
     assert(!manager.hasUnsavedFiles());
@@ -33,14 +33,14 @@ void testBasicFunctionality() {
     // 测试打开文件
     manager.openFile("test1.txt", editor1);
     assert(manager.isFileOpen("test1.txt"));
-    assert(manager.getOpenFileCount() == 1);
+    assert(manager.getOpenFiles().size() == 1);
     assert(manager.getActiveFileName() == "test1.txt");
     assert(manager.getActiveEditor() == editor1);
     printTestResult("Open first file", true);
 
     manager.openFile("test2.txt", editor2);
     assert(manager.isFileOpen("test2.txt"));
-    assert(manager.getOpenFileCount() == 2);
+    assert(manager.getOpenFiles().size() == 2);
     assert(manager.getActiveFileName() == "test1.txt"); // 第一个文件仍然是活动的
     printTestResult("Open second file", true);
 
@@ -110,7 +110,7 @@ void testBasicFunctionality() {
     manager.closeFile("test1.txt");
     assert(!manager.isFileOpen("test1.txt"));
     assert(manager.isFileOpen("test2.txt"));
-    assert(manager.getOpenFileCount() == 1);
+    assert(manager.getOpenFiles().size() == 1);
     // 活动文件应该自动切换到test2.txt（如果test1.txt是活动的，但我们已经切换到了test2.txt）
     assert(manager.getActiveFileName() == "test2.txt");
     printTestResult("Close file", true);
@@ -121,12 +121,12 @@ void testBasicFunctionality() {
     manager.closeFile("test3.txt");
     // 活动文件应该自动切换到剩余的打开文件（test2.txt）
     assert(manager.getActiveFileName() == "test2.txt");
-    assert(manager.getOpenFileCount() == 1);
+    assert(manager.getOpenFiles().size() == 1);
     printTestResult("Close active file (auto-switch)", true);
 
     // 测试清空所有状态
     manager.clear();
-    assert(manager.getOpenFileCount() == 0);
+    assert(manager.getOpenFiles().size() == 0);
     assert(manager.getActiveFileName().empty());
     assert(!manager.hasUnsavedFiles());
     printTestResult("Clear all state", true);
@@ -158,10 +158,14 @@ void testEdgeCasesAndExceptions() {
     assert(!manager.isFileModified("nonexistent.txt")); // 应该返回false
     printTestResult("Check modified state for non-existent file returns false", true);
 
-    // 测试设置不存在的文件的修改状态（应该创建状态记录）
-    manager.setFileModified("nonexistent.txt", true);
-    // 注意：这可能会在内部创建一个状态记录，但文件并没有实际打开
-    printTestResult("Set modified state for non-existent file (edge case)", true);
+    // 测试设置不存在的文件的修改状态（应该抛出异常）
+    try {
+        manager.setFileModified("nonexistent.txt", true);
+        assert(false);
+    } catch (const std::exception&) {
+        // 预期行为：对未打开的文件设置修改状态会抛出异常
+    }
+    printTestResult("Set modified state for non-existent file throws", true);
 
     // 测试有效性检查
     assert(manager.isValid()); // 空管理器应该是有效的
@@ -182,8 +186,12 @@ void testStatistics() {
     DocumentManager manager;
 
     // 初始统计
-    assert(manager.getOpenFileCount() == 0);
-    assert(manager.getModifiedFileCount() == 0);
+    assert(manager.getOpenFiles().size() == 0);
+    {
+        size_t modCount = 0;
+        for (const auto& p : manager.getAllModifiedStates()) if (p.second) modCount++;
+        assert(modCount == 0);
+    }
     printTestResult("Initial statistics", true);
 
     // 打开几个文件
@@ -195,15 +203,23 @@ void testStatistics() {
     manager.openFile("file2.txt", editor2);
     manager.openFile("file3.txt", editor3);
 
-    assert(manager.getOpenFileCount() == 3);
-    assert(manager.getModifiedFileCount() == 0);
+    assert(manager.getOpenFiles().size() == 3);
+    {
+        size_t modCount = 0;
+        for (const auto& p : manager.getAllModifiedStates()) if (p.second) modCount++;
+        assert(modCount == 0);
+    }
     printTestResult("Statistics after opening files", true);
 
     // 设置一些文件为修改状态
     manager.setFileModified("file1.txt", true);
     manager.setFileModified("file3.txt", true);
 
-    assert(manager.getModifiedFileCount() == 2);
+    {
+        size_t modCount = 0;
+        for (const auto& p : manager.getAllModifiedStates()) if (p.second) modCount++;
+        assert(modCount == 2);
+    }
     printTestResult("Statistics after modifying files", true);
 
     // 获取所有修改状态

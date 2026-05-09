@@ -9,7 +9,6 @@
 class DirectoryService : public Model {
 public:
     DirectoryService() = default;
-    std::string getName() const override { return "DirectoryService"; }
 
     std::string getDirectoryTree(const std::string& path = "");
     std::shared_ptr<TreeNode> getDirectoryTreeStructure(const std::string& path = "");

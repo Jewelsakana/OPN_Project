@@ -13,11 +13,6 @@ public:
     FileSystemService();
     ~FileSystemService() override = default;
 
-    // 获取实例名称
-    std::string getName() const override {
-        return "FileSystemService";
-    }
-
     // 从文件加载内容到TextEditor
     // 参数：fileName - 文件名
     // 返回：读取的行内容向量

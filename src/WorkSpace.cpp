@@ -52,7 +52,6 @@ WorkSpace::WorkSpace()
     , editorCoordinator_(documentManager_)
     , fileCoordinator_(fileSystemService_, documentManager_, outputService_, loggerManager_)
     , logCoordinator_(loggerManager_, outputService_)
-    , configCoordinator_(configManager_)
     , exitRequested_(false) {
     // 注入TextEditor工厂
     fileCoordinator_.setEditorFactory([this]() { return createTextEditor(); });
@@ -231,6 +230,24 @@ FileSystemService& WorkSpace::getFileSystemService() {
     return fileSystemService_;
 }
 
+// 统一输出接口
+
+void WorkSpace::outputError(const std::string& message) {
+    outputService_.outputError(message);
+}
+
+void WorkSpace::outputLine(const std::string& message) {
+    outputService_.outputLine(message);
+}
+
+void WorkSpace::outputList(const std::vector<FileInfo>& files) {
+    outputService_.outputList(files);
+}
+
+void WorkSpace::outputTree(const TreeNode& root) {
+    outputService_.outputTree(root);
+}
+
 OutputService& WorkSpace::getOutputService() {
     return outputService_;
 }
@@ -282,9 +299,9 @@ bool WorkSpace::isExitRequested() const {
 
 // 配置管理（委托给ConfigCoordinator）
 void WorkSpace::saveConfig(const std::string& configFile) {
-    configCoordinator_.saveConfig(configFile);
+    configManager_.saveConfig(configFile);
 }
 
 bool WorkSpace::loadConfig(const std::string& configFile) {
-    return configCoordinator_.loadConfig(configFile);
+    return configManager_.loadConfig(configFile);
 }

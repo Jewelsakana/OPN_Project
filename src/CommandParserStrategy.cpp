@@ -3,8 +3,6 @@
 #include <regex>
 #include <stdexcept>
 
-// ===== 辅助函数 =====
-
 std::string parseQuotedTextHelper(const std::string& text) {
     if (text.length() < 2 || text.front() != '"' || text.back() != '"') {
         throw ArgumentParseException(text, "Text must be enclosed in double quotes");
@@ -64,8 +62,6 @@ namespace {
         return p;
     }
 }
-
-// ===== 编辑器命令策略 =====
 
 std::string AppendParser::getCommandName() const { return "append"; }
 
@@ -140,8 +136,6 @@ ParsedCommand ShowParser::parse(const std::string&, const std::vector<std::strin
     }
     return parsed;
 }
-
-// ===== 工作区命令策略 =====
 
 std::string LoadParser::getCommandName() const { return "load"; }
 

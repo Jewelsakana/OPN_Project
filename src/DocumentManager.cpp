@@ -4,9 +4,7 @@
 #include <iostream>
 #include <stdexcept>
 
-DocumentManager::DocumentManager() : activeFileName_("") {
-    // 构造函数
-}
+DocumentManager::DocumentManager() : activeFileName_("") {}
 
 bool DocumentManager::isFileOpen(const std::string& fileName) const {
     return openFiles_.find(fileName) != openFiles_.end();
@@ -161,20 +159,6 @@ bool DocumentManager::isValid() const {
         return false;
     }
     return true;
-}
-
-size_t DocumentManager::getOpenFileCount() const {
-    return openFiles_.size();
-}
-
-size_t DocumentManager::getModifiedFileCount() const {
-    size_t count = 0;
-    for (const auto& pair : fileModifiedStates_) {
-        if (pair.second) {
-            count++;
-        }
-    }
-    return count;
 }
 
 void DocumentManager::handleException(const std::exception& e) const {

@@ -3,9 +3,7 @@
 #include <vector>
 #include <string>
 
-OutputService::OutputService() {
-    // 构造函数
-}
+OutputService::OutputService() {}
 
 void OutputService::outputList(const std::vector<FileInfo>& files) {
     try {

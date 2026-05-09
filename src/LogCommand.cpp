@@ -30,7 +30,7 @@ void LogonCommand::execute() {
     workspace_->startLoggingForFile(targetFile);
     // 保存实际文件名（用于撤销）
     fileName_ = targetFile;
-    workspace_->getOutputService().outputLine("Logging started for file: " + targetFile);
+    workspace_->outputLine("Logging started for file: " + targetFile);
 }
 
 void LogonCommand::undo() {
@@ -38,7 +38,7 @@ void LogonCommand::undo() {
     // 如果执行前不在记录日志，则停止日志记录
     if (!wasLogging_) {
         workspace_->stopLoggingForFile(fileName_);
-        workspace_->getOutputService().outputLine("Logging stopped for file (undo): " + fileName_);
+        workspace_->outputLine("Logging stopped for file (undo): " + fileName_);
     }
     // 如果执行前已经在记录日志，则不需要做任何事情
 }
@@ -66,7 +66,7 @@ void LogoffCommand::execute() {
     workspace_->stopLoggingForFile(targetFile);
     // 保存实际文件名（用于撤销）
     fileName_ = targetFile;
-    workspace_->getOutputService().outputLine("Logging stopped for file: " + targetFile);
+    workspace_->outputLine("Logging stopped for file: " + targetFile);
 }
 
 void LogoffCommand::undo() {
@@ -74,7 +74,7 @@ void LogoffCommand::undo() {
     // 如果执行前在记录日志，则重新启动日志记录
     if (wasLogging_) {
         workspace_->startLoggingForFile(fileName_);
-        workspace_->getOutputService().outputLine("Logging started for file (undo): " + fileName_);
+        workspace_->outputLine("Logging started for file (undo): " + fileName_);
     }
     // 如果执行前不在记录日志，则不需要做任何事情
 }

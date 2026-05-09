@@ -18,11 +18,6 @@ public:
     DocumentManager();
     ~DocumentManager() override = default;
 
-    // 获取实例名称
-    std::string getName() const override {
-        return "DocumentManager";
-    }
-
     // 文件管理
     bool isFileOpen(const std::string& fileName) const;
     void openFile(const std::string& fileName, std::shared_ptr<Editor> editor);
@@ -54,10 +49,6 @@ public:
 
     // 验证状态
     bool isValid() const override;
-
-    // 获取统计信息
-    size_t getOpenFileCount() const;
-    size_t getModifiedFileCount() const;
 
 private:
     std::map<std::string, std::shared_ptr<Editor>> openFiles_;  // 打开的文件映射

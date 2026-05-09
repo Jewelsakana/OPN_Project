@@ -21,19 +21,7 @@ namespace {
     REGISTER_WS_CMD_NOARGS(WorkSpaceCommandType::Exit, ExitCommand)
 }
 
-// 尝试使用filesystem库
-#if __has_include(<filesystem>) && (!defined(__GNUC__) || __GNUC__ >= 9)
-// GCC 8的filesystem实现有问题，使用实验版本
-#  include <filesystem>
-   namespace fs = std::filesystem;
-#  define HAS_FILESYSTEM 1
-#elif __has_include(<experimental/filesystem>)
-#  include <experimental/filesystem>
-   namespace fs = std::experimental::filesystem;
-#  define HAS_FILESYSTEM 1
-#else
-#  define HAS_FILESYSTEM 0
-#endif
+#include "FilesystemCompat.h"
 
 // WorkSpaceCommand protected helpers
 
@@ -62,11 +50,9 @@ void LoadCommand::execute() {
 
 void LoadCommand::undo() {
     checkWorkSpace();
-    // 如果文件之前未打开，则关闭它
     if (!wasOpen_ && workspace_->isFileOpen(fileName_)) {
         workspace_->closeFile(fileName_);
     }
-    // 如果文件之前已打开，我们无法恢复到之前的内容，所以什么都不做
 }
 
 bool LoadCommand::isReadOnly() const {
@@ -117,11 +103,9 @@ void InitCommand::execute() {
 
 void InitCommand::undo() {
     checkWorkSpace();
-    // 如果文件之前未打开，则关闭它
     if (!wasOpen_ && workspace_->isFileOpen(fileName_)) {
         workspace_->closeFile(fileName_);
     }
-    // 如果文件之前已打开，我们无法恢复到之前的内容，所以什么都不做
 }
 
 bool InitCommand::isReadOnly() const {
@@ -213,8 +197,7 @@ void EditorListCommand::execute() {
     // 获取结构化文件信息列表
     auto fileInfos = workspace_->getFileInfoList();
 
-    // 通过OutputService输出
-    workspace_->getOutputService().outputList(fileInfos);
+    workspace_->outputList(fileInfos);
 }
 
 void EditorListCommand::undo() {
@@ -235,8 +218,7 @@ void DirTreeCommand::execute() {
     // 获取结构化目录树
     auto treeRoot = workspace_->getDirectoryTreeStructure(path_);
 
-    // 通过OutputService输出
-    workspace_->getOutputService().outputTree(*treeRoot);
+    workspace_->outputTree(*treeRoot);
 }
 
 
@@ -301,7 +283,6 @@ bool RedoCommand::isReadOnly() const {
 ExitCommand::ExitCommand() {}
 
 void ExitCommand::ensureNoUnsavedFiles() {
-    auto& outputService = workspace_->getOutputService();
     std::vector<std::string> unsavedFiles;
     auto openFiles = workspace_->getOpenFiles();
     for (const auto& fileName : openFiles) {
@@ -316,17 +297,16 @@ void ExitCommand::ensureNoUnsavedFiles() {
             errorMsg += "  " + fileName + "\n";
         }
         errorMsg += "Please save them before exiting.";
-        outputService.outputError(errorMsg);
+        workspace_->outputError(errorMsg);
         throw std::runtime_error(errorMsg);
     }
 }
 
 void ExitCommand::trySaveConfig() {
-    auto& outputService = workspace_->getOutputService();
     try {
         workspace_->saveConfig(".editor_config");
     } catch (const std::exception& e) {
-        outputService.outputError("Warning: Failed to save configuration: " + std::string(e.what()));
+        workspace_->outputError("Warning: Failed to save configuration: " + std::string(e.what()));
     }
 }
 
@@ -335,7 +315,7 @@ void ExitCommand::execute() {
     ensureNoUnsavedFiles();
     trySaveConfig();
     workspace_->requestExit();
-    workspace_->getOutputService().outputLine("ExitCommand: All files saved. Exiting program...");
+    workspace_->outputLine("ExitCommand: All files saved. Exiting program...");
 }
 
 void ExitCommand::undo() {

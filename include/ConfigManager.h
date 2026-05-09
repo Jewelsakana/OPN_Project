@@ -10,7 +10,6 @@ class ConfigSerializer;
 class ConfigManager : public Model {
 public:
     ConfigManager(WorkSpace& workspace, ConfigSerializer& serializer);
-    std::string getName() const override { return "ConfigManager"; }
 
     void saveConfig(const std::string& configFile);
     bool loadConfig(const std::string& configFile);

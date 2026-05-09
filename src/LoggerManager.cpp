@@ -6,7 +6,6 @@
 
 LoggerManager::LoggerManager(FileSystemService& fileSystemService, WorkSpace& workspace)
     : fileSystemService_(fileSystemService), workspace_(workspace) {
-    // 构造函数可以初始化状态
 }
 
 void LoggerManager::startLoggingForFile(const std::string& fileName) {
@@ -73,16 +72,16 @@ void LoggerManager::showLog(const std::string& fileName) {
             auto logLines = fileSystemService_.loadFile(logFileName);
             if (logLines.empty()) {
                 // 通过WorkSpace的OutputService输出
-                workspace_.getOutputService().outputLine("Log file is empty: " + logFileName);
+                workspace_.outputLine("Log file is empty: " + logFileName);
             } else {
-                workspace_.getOutputService().outputLine("Log content for file: " + targetFile);
+                workspace_.outputLine("Log content for file: " + targetFile);
                 for (const auto& line : logLines) {
-                    workspace_.getOutputService().outputLine(line);
+                    workspace_.outputLine(line);
                 }
             }
         } catch (const std::exception& e) {
             // 文件不存在或其他错误
-            workspace_.getOutputService().outputLine("Cannot show log for file " + targetFile + ": " + e.what());
+            workspace_.outputLine("Cannot show log for file " + targetFile + ": " + e.what());
         }
     });
 }

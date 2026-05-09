@@ -1,20 +1,21 @@
 #include "DirectoryService.h"
+#include "FilesystemCompat.h"
 #include <algorithm>
 #include <sstream>
 #include <iostream>
 #include <fstream>
 
-// 尝试使用filesystem库
-#if __has_include(<filesystem>) && (!defined(__GNUC__) || __GNUC__ >= 9)
-#  include <filesystem>
-   namespace fs = std::filesystem;
-#  define HAS_FILESYSTEM 1
-#elif __has_include(<experimental/filesystem>)
-#  include <experimental/filesystem>
-   namespace fs = std::experimental::filesystem;
-#  define HAS_FILESYSTEM 1
-#else
-#  define HAS_FILESYSTEM 0
+#if HAS_FILESYSTEM
+namespace {
+    bool compareDirectoryEntries(const fs::directory_entry& a, const fs::directory_entry& b) {
+        bool aIsDir = fs::is_directory(a.path());
+        bool bIsDir = fs::is_directory(b.path());
+        if (aIsDir != bIsDir) {
+            return aIsDir > bIsDir;
+        }
+        return a.path().filename().string() < b.path().filename().string();
+    }
+}
 #endif
 
 std::string DirectoryService::getDirectoryTree(const std::string& path) {
@@ -56,15 +57,7 @@ std::string DirectoryService::buildDirectoryTree(const std::string& path, const 
             entries.push_back(entry);
         }
 
-        std::sort(entries.begin(), entries.end(),
-            [](const fs::directory_entry& a, const fs::directory_entry& b) {
-                bool aIsDir = fs::is_directory(a.path());
-                bool bIsDir = fs::is_directory(b.path());
-                if (aIsDir != bIsDir) {
-                    return aIsDir > bIsDir;
-                }
-                return a.path().filename().string() < b.path().filename().string();
-            });
+        std::sort(entries.begin(), entries.end(), compareDirectoryEntries);
 
         for (size_t i = 0; i < entries.size(); ++i) {
             const auto& entry = entries[i];
@@ -148,15 +141,7 @@ std::shared_ptr<TreeNode> DirectoryService::buildDirectoryTreeStructure(const st
             entries.push_back(entry);
         }
 
-        std::sort(entries.begin(), entries.end(),
-            [](const fs::directory_entry& a, const fs::directory_entry& b) {
-                bool aIsDir = fs::is_directory(a.path());
-                bool bIsDir = fs::is_directory(b.path());
-                if (aIsDir != bIsDir) {
-                    return aIsDir > bIsDir;
-                }
-                return a.path().filename().string() < b.path().filename().string();
-            });
+        std::sort(entries.begin(), entries.end(), compareDirectoryEntries);
 
         for (const auto& entry : entries) {
             std::string entryName = entry.path().filename().string();

@@ -35,7 +35,7 @@ void CommandController::parseAndExecuteCommand(const std::string& commandString)
             throw std::runtime_error("Failed to create command from parsed data");
         }
     } catch (const std::exception& e) {
-        workspace_->getOutputService().outputError(e.what());
+        workspace_->outputError(e.what());
         throw;
     }
 }
@@ -57,7 +57,7 @@ void CommandController::executeCommand(std::unique_ptr<Command> command) {
             }
         }
     } catch (const std::exception& e) {
-        workspace_->getOutputService().outputError(e.what());
+        workspace_->outputError(e.what());
         throw;
     }
 }

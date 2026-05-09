@@ -48,10 +48,6 @@ public:
     ~TextEngine() override = default;
 
     // Model接口重写
-    std::string getName() const override {
-        return "TextEngine";
-    }
-
     void validate() const override {
         // TextEngine的验证逻辑：检查内部状态是否有效
         // 由于TextEngine是无状态的，这里总是有效
@@ -59,10 +55,6 @@ public:
 
     bool isValid() const override {
         return true; // TextEngine总是有效的
-    }
-
-    void reset() override {
-        // TextEngine无状态，不需要重置
     }
 
 protected:

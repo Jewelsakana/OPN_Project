@@ -21,11 +21,6 @@ public:
     LoggerManager(FileSystemService& fileSystemService, WorkSpace& workspace);
     ~LoggerManager() override = default;
 
-    // 获取实例名称（重写Model基类方法）
-    std::string getName() const override {
-        return "LoggerManager";
-    }
-
     // 文件日志管理
     void startLoggingForFile(const std::string& fileName);
     void stopLoggingForFile(const std::string& fileName);

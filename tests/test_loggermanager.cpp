@@ -73,9 +73,6 @@ void testLoggerManagerModelInheritance() {
     WorkSpace workspace;
     LoggerManager manager(fsService, workspace);
 
-    // 测试getName方法
-    assert(manager.getName() == "LoggerManager");
-
     // 测试异常安全（使用safeExecute包装）
     // 启动日志记录应该成功
     manager.startLoggingForFile("test.txt");

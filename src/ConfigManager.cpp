@@ -14,7 +14,7 @@ void ConfigManager::saveConfig(const std::string& configFile) {
         Event event("config saved", configFile);
         workspace_.notify(event);
     } catch (const std::exception& e) {
-        workspace_.getOutputService().outputError("Warning: Failed to save configuration: " + std::string(e.what()));
+        workspace_.outputError("Warning: Failed to save configuration: " + std::string(e.what()));
     }
 }
 
@@ -29,7 +29,7 @@ bool ConfigManager::loadConfig(const std::string& configFile) {
         workspace_.notify(event);
         return true;
     } catch (const std::exception& e) {
-        workspace_.getOutputService().outputError("Warning: Failed to load configuration (using default): " + std::string(e.what()));
+        workspace_.outputError("Warning: Failed to load configuration (using default): " + std::string(e.what()));
         return false;
     }
 }

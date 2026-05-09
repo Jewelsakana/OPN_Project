@@ -13,11 +13,6 @@ public:
     OutputService();
     ~OutputService() override = default;
 
-    // 获取实例名称
-    std::string getName() const override {
-        return "OutputService";
-    }
-
     // 输出文件列表（接收结构化数据）
     void outputList(const std::vector<FileInfo>& files);
 

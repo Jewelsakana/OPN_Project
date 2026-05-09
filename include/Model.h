@@ -15,16 +15,6 @@ public:
         // 子类可以实现验证逻辑
     }
 
-    // 获取模型名称（用于调试和日志）
-    virtual std::string getName() const {
-        return "Model";
-    }
-
-    // 重置模型状态
-    virtual void reset() {
-        // 子类可以实现状态重置逻辑
-    }
-
     // 检查模型是否处于有效状态
     virtual bool isValid() const {
         return true;

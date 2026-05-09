@@ -41,16 +41,16 @@ public:
     void executeCommand(std::unique_ptr<Command> command);
 
     // Undo操作
-    void undo();
+    void undo() override;
 
     // Redo操作
-    void redo();
+    void redo() override;
 
     // 检查是否可以Undo
-    bool canUndo() const;
+    bool canUndo() const override;
 
     // 检查是否可以Redo
-    bool canRedo() const;
+    bool canRedo() const override;
 
     // 设置行内容（用于文件加载）
     void setLines(const std::vector<std::string>& newLines);

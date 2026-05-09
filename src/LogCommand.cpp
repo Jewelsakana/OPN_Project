@@ -1,15 +1,41 @@
 #include "LogCommand.h"
 #include "WorkSpace.h"
 #include "OutputService.h"
+#include "CommandFactory.h"
 #include <iostream>
+
+// 自注册：日志命令工厂
+namespace {
+    static bool _reg_logon = []() {
+        CommandFactory::registerWorkSpaceCreator(WorkSpaceCommandType::Logon,
+            [](const WorkSpaceParsedCommand& ws) -> std::unique_ptr<Command> {
+                return std::make_unique<LogonCommand>(ws.fileName.value_or(""));
+            });
+        return true;
+    }();
+
+    static bool _reg_logoff = []() {
+        CommandFactory::registerWorkSpaceCreator(WorkSpaceCommandType::Logoff,
+            [](const WorkSpaceParsedCommand& ws) -> std::unique_ptr<Command> {
+                return std::make_unique<LogoffCommand>(ws.fileName.value_or(""));
+            });
+        return true;
+    }();
+
+    static bool _reg_logshow = []() {
+        CommandFactory::registerWorkSpaceCreator(WorkSpaceCommandType::Logshow,
+            [](const WorkSpaceParsedCommand& ws) -> std::unique_ptr<Command> {
+                return std::make_unique<LogshowCommand>(ws.fileName.value_or(""));
+            });
+        return true;
+    }();
+}
 
 // LogonCommand实现
 LogonCommand::LogonCommand(const std::string& fileName) : fileName_(fileName) {}
 
 void LogonCommand::execute() {
-    if (!workspace_) {
-        throw std::runtime_error("LogonCommand: No workspace associated");
-    }
+    checkWorkSpace();
     // 获取目标文件名（如果为空则使用当前活动文件）
     std::string targetFile = fileName_;
     if (targetFile.empty()) {
@@ -28,9 +54,7 @@ void LogonCommand::execute() {
 }
 
 void LogonCommand::undo() {
-    if (!workspace_) {
-        throw std::runtime_error("LogonCommand: No workspace associated for undo");
-    }
+    checkWorkSpace();
     // 如果执行前不在记录日志，则停止日志记录
     if (!wasLogging_) {
         workspace_->stopLoggingForFile(fileName_);
@@ -47,9 +71,7 @@ bool LogonCommand::isReadOnly() const {
 LogoffCommand::LogoffCommand(const std::string& fileName) : fileName_(fileName) {}
 
 void LogoffCommand::execute() {
-    if (!workspace_) {
-        throw std::runtime_error("LogoffCommand: No workspace associated");
-    }
+    checkWorkSpace();
     // 获取目标文件名（如果为空则使用当前活动文件）
     std::string targetFile = fileName_;
     if (targetFile.empty()) {
@@ -68,9 +90,7 @@ void LogoffCommand::execute() {
 }
 
 void LogoffCommand::undo() {
-    if (!workspace_) {
-        throw std::runtime_error("LogoffCommand: No workspace associated for undo");
-    }
+    checkWorkSpace();
     // 如果执行前在记录日志，则重新启动日志记录
     if (wasLogging_) {
         workspace_->startLoggingForFile(fileName_);
@@ -87,9 +107,7 @@ bool LogoffCommand::isReadOnly() const {
 LogshowCommand::LogshowCommand(const std::string& fileName) : fileName_(fileName) {}
 
 void LogshowCommand::execute() {
-    if (!workspace_) {
-        throw std::runtime_error("LogshowCommand: No workspace associated");
-    }
+    checkWorkSpace();
     std::string targetFile = fileName_;
     if (targetFile.empty()) {
         targetFile = workspace_->getActiveFileName();

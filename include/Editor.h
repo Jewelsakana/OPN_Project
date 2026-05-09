@@ -14,7 +14,11 @@ public:
     // 执行命令
     virtual void executeCommand(std::unique_ptr<Command> command) = 0;
 
-    // 可以添加其他通用的编辑方法
+    // Undo/Redo操作（默认空实现，子类可重写）
+    virtual void undo() {}
+    virtual void redo() {}
+    virtual bool canUndo() const { return false; }
+    virtual bool canRedo() const { return false; }
 };
 
 #endif // EDITOR_H

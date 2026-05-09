@@ -1,4 +1,59 @@
 #include "TextCommands.h"
+#include "CommandFactory.h"
+
+// 自注册：编辑器命令工厂
+namespace {
+    static bool _reg_append = []() {
+        CommandFactory::registerEditorCreator(EditorCommandType::Append,
+            [](const EditorParsedCommand& ed, const EditorCommandContext& ctx) -> std::unique_ptr<Command> {
+                if (ed.text)
+                    return std::make_unique<AppendCommand>(ctx.lines, ctx.textEngine, *ed.text);
+                return nullptr;
+            });
+        return true;
+    }();
+
+    static bool _reg_insert = []() {
+        CommandFactory::registerEditorCreator(EditorCommandType::Insert,
+            [](const EditorParsedCommand& ed, const EditorCommandContext& ctx) -> std::unique_ptr<Command> {
+                if (ed.line && ed.column && ed.text)
+                    return std::make_unique<InsertCommand>(ctx.lines, ctx.textEngine, *ed.line, *ed.column, *ed.text);
+                return nullptr;
+            });
+        return true;
+    }();
+
+    static bool _reg_delete = []() {
+        CommandFactory::registerEditorCreator(EditorCommandType::Delete,
+            [](const EditorParsedCommand& ed, const EditorCommandContext& ctx) -> std::unique_ptr<Command> {
+                if (ed.line && ed.column && ed.length)
+                    return std::make_unique<DeleteCommand>(ctx.lines, ctx.textEngine, *ed.line, *ed.column, *ed.length);
+                return nullptr;
+            });
+        return true;
+    }();
+
+    static bool _reg_replace = []() {
+        CommandFactory::registerEditorCreator(EditorCommandType::Replace,
+            [](const EditorParsedCommand& ed, const EditorCommandContext& ctx) -> std::unique_ptr<Command> {
+                if (ed.line && ed.column && ed.length && ed.text)
+                    return std::make_unique<ReplaceCommand>(ctx.lines, ctx.textEngine, *ed.line, *ed.column, *ed.length, *ed.text);
+                return nullptr;
+            });
+        return true;
+    }();
+
+    static bool _reg_show = []() {
+        CommandFactory::registerEditorCreator(EditorCommandType::Show,
+            [](const EditorParsedCommand& ed, const EditorCommandContext& ctx) -> std::unique_ptr<Command> {
+                if (ed.startLine && ed.endLine)
+                    return std::make_unique<ShowCommand>(ctx.lines, ctx.textEngine, ctx.outputService, *ed.startLine, *ed.endLine);
+                else
+                    return std::make_unique<ShowCommand>(ctx.lines, ctx.textEngine, ctx.outputService);
+            });
+        return true;
+    }();
+}
 
 // TextCommand基类实现
 TextCommand::TextCommand(std::vector<std::string>& lines, TextEngine* engine)
@@ -176,22 +231,22 @@ void AppendCommand::undo() {
 ShowCommand::ShowCommand(const std::vector<std::string>& lines, TextEngine* engine,
                          OutputService* outputService,
                          int startLine, int endLine)
-    : TextCommand(const_cast<std::vector<std::string>&>(lines), engine)
-    , constLines(lines)
-    , outputService(outputService)
-    , startLine(startLine)
-    , endLine(endLine) {
-    if (!outputService) {
+    : lines_(lines)
+    , textEngine_(engine)
+    , outputService_(outputService)
+    , startLine_(startLine)
+    , endLine_(endLine) {
+    if (!outputService_) {
         throw std::invalid_argument("ShowCommand: OutputService cannot be null");
     }
 }
 
 void ShowCommand::execute() {
     // 调用TextEngine显示文本
-    result = textEngine->show(constLines, startLine, endLine);
+    result_ = textEngine_->show(lines_, startLine_, endLine_);
 
     // 使用OutputService输出结果
-    outputService->outputText(result);
+    outputService_->outputText(result_);
 }
 
 void ShowCommand::undo() {
@@ -199,7 +254,7 @@ void ShowCommand::undo() {
 }
 
 std::string ShowCommand::getResult() const {
-    return result;
+    return result_;
 }
 
 // ReplaceCommand实现

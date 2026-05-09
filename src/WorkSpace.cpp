@@ -9,6 +9,8 @@
 #include <sstream>
 #include <iomanip>
 #include <set>
+#include <chrono>
+#include <ctime>
 
 // WorkspaceMemento实现
 
@@ -49,66 +51,71 @@ const std::vector<std::string>& WorkspaceMemento::getLoggedFiles() const {
 WorkSpace::WorkSpace()
     : loggerManager_(fileSystemService_, *this)
     , configManager_(*this, configSerializer_)
-    , logEnabled_(false)
+    , editorCoordinator_(documentManager_)
+    , fileCoordinator_(fileSystemService_, documentManager_, outputService_, loggerManager_)
+    , logCoordinator_(loggerManager_, outputService_)
+    , configCoordinator_(configManager_)
     , exitRequested_(false) {
+    // 注入TextEditor工厂
+    fileCoordinator_.setEditorFactory([this]() { return createTextEditor(); });
     loadConfig(".editor_config");
 }
 
 WorkSpace::~WorkSpace() {
 }
 
-// 文件管理（委托给DocumentManager）
+// 文件管理（委托给EditorCoordinator）
 
 void WorkSpace::openFile(const std::string& fileName) {
     if (!documentManager_.isFileOpen(fileName)) {
         auto editor = createTextEditor();
-        documentManager_.openFile(fileName, editor);
+        editorCoordinator_.openFile(fileName, editor);
     }
 }
 
 void WorkSpace::closeFile(const std::string& fileName) {
-    documentManager_.closeFile(fileName);
+    editorCoordinator_.closeFile(fileName);
 }
 
 void WorkSpace::setActiveFile(const std::string& fileName) {
-    documentManager_.setActiveFile(fileName);
+    editorCoordinator_.setActiveFile(fileName);
 }
 
 std::shared_ptr<Editor> WorkSpace::getActiveEditor() const {
-    return documentManager_.getActiveEditor();
+    return editorCoordinator_.getActiveEditor();
 }
 
 std::shared_ptr<Editor> WorkSpace::getEditor(const std::string& fileName) const {
-    return documentManager_.getEditor(fileName);
+    return editorCoordinator_.getEditor(fileName);
 }
 
 std::vector<std::string> WorkSpace::getOpenFiles() const {
-    return documentManager_.getOpenFiles();
+    return editorCoordinator_.getOpenFiles();
 }
 
 const std::string& WorkSpace::getActiveFileName() const {
-    return documentManager_.getActiveFileName();
+    return editorCoordinator_.getActiveFileName();
 }
 
 bool WorkSpace::isFileOpen(const std::string& fileName) const {
-    return documentManager_.isFileOpen(fileName);
+    return editorCoordinator_.isFileOpen(fileName);
 }
 
 void WorkSpace::setFileModified(const std::string& fileName, bool modified) {
-    documentManager_.setFileModified(fileName, modified);
+    editorCoordinator_.setFileModified(fileName, modified);
 }
 
 bool WorkSpace::isFileModified(const std::string& fileName) const {
-    return documentManager_.isFileModified(fileName);
+    return editorCoordinator_.isFileModified(fileName);
 }
 
-// 日志开关
+// 日志开关（委托给LogCoordinator）
 void WorkSpace::setLogEnabled(bool enabled) {
-    logEnabled_ = enabled;
+    logCoordinator_.setLogEnabled(enabled);
 }
 
 bool WorkSpace::isLogEnabled() const {
-    return logEnabled_;
+    return logCoordinator_.isLogEnabled();
 }
 
 // 观察者通知
@@ -117,43 +124,45 @@ void WorkSpace::notify(const Event& event) {
 }
 
 // 备忘录模式
+
 std::shared_ptr<WorkspaceMemento> WorkSpace::createMemento() const {
-    auto openFiles = documentManager_.getOpenFiles();
-    auto activeFileName = documentManager_.getActiveFileName();
-    auto modifiedStates = documentManager_.getAllModifiedStates();
-    auto loggedFiles = loggerManager_.getLoggedFiles();
-    return std::make_shared<WorkspaceMemento>(openFiles, activeFileName, modifiedStates, logEnabled_, loggedFiles);
+    auto openFiles = editorCoordinator_.getOpenFiles();
+    auto activeFileName = editorCoordinator_.getActiveFileName();
+    auto modifiedStates = editorCoordinator_.getAllModifiedStates();
+    auto loggedFiles = logCoordinator_.getLoggedFiles();
+    return std::make_shared<WorkspaceMemento>(openFiles, activeFileName, modifiedStates,
+                                              logCoordinator_.isLogEnabled(), loggedFiles);
 }
 
 void WorkSpace::restoreFromMemento(const WorkspaceMemento& memento) {
-    documentManager_.clear();
+    editorCoordinator_.clear();
 
     const auto& openFiles = memento.getOpenFiles();
     for (const auto& fileName : openFiles) {
         auto editor = createTextEditor();
-        documentManager_.openFile(fileName, editor);
+        editorCoordinator_.openFile(fileName, editor);
     }
 
     const auto& modifiedStates = memento.getFileModifiedStates();
     for (const auto& pair : modifiedStates) {
-        if (documentManager_.isFileOpen(pair.first)) {
-            documentManager_.setFileModified(pair.first, pair.second);
+        if (editorCoordinator_.isFileOpen(pair.first)) {
+            editorCoordinator_.setFileModified(pair.first, pair.second);
         }
     }
 
     const std::string& activeFileName = memento.getActiveFileName();
-    if (!activeFileName.empty() && documentManager_.isFileOpen(activeFileName)) {
-        documentManager_.setActiveFile(activeFileName);
+    if (!activeFileName.empty() && editorCoordinator_.isFileOpen(activeFileName)) {
+        editorCoordinator_.setActiveFile(activeFileName);
     }
 
-    logEnabled_ = memento.isLogEnabled();
+    logCoordinator_.setLogEnabled(memento.isLogEnabled());
 
     const auto& loggedFiles = memento.getLoggedFiles();
     std::set<std::string> loggedFilesSet(loggedFiles.begin(), loggedFiles.end());
 
     for (const auto& fileName : loggedFiles) {
-        if (documentManager_.isFileOpen(fileName)) {
-            startLoggingForFile(fileName);
+        if (editorCoordinator_.isFileOpen(fileName)) {
+            logCoordinator_.startLoggingForFile(fileName);
         }
     }
 
@@ -165,7 +174,7 @@ void WorkSpace::restoreFromMemento(const WorkspaceMemento& memento) {
             try {
                 auto lines = fileSystemService_.loadFile(fileName);
                 if (!lines.empty() && lines[0] == "# log") {
-                    startLoggingForFile(fileName);
+                    logCoordinator_.startLoggingForFile(fileName);
                 }
             } catch (const std::exception& e) {
                 outputService_.outputError("Warning: Failed to check #log in " + fileName + ": " + e.what());
@@ -174,98 +183,22 @@ void WorkSpace::restoreFromMemento(const WorkspaceMemento& memento) {
     }
 }
 
-// 文件加载和保存
+// 文件加载和保存（委托给FileCoordinator）
 
 void WorkSpace::loadFile(const std::string& fileName) {
-    if (documentManager_.isFileOpen(fileName)) {
-        documentManager_.setActiveFile(fileName);
-        return;
-    }
-
-    std::vector<std::string> lines;
-    bool fileExisted = false;
-
-    if (fileSystemService_.fileExists(fileName)) {
-        lines = fileSystemService_.loadFile(fileName);
-        fileExisted = true;
-    } else {
-        fileSystemService_.createFileIfNotExists(fileName);
-        lines = {};
-    }
-
-    auto editor = createTextEditor();
-    auto textEditor = std::dynamic_pointer_cast<TextEditor>(editor);
-    if (textEditor) {
-        textEditor->setLines(lines);
-        textEditor->setModified(!fileExisted);
-    }
-
-    documentManager_.openFile(fileName, editor);
-    documentManager_.setFileModified(fileName, !fileExisted);
-
-    if (documentManager_.getActiveFileName().empty()) {
-        documentManager_.setActiveFile(fileName);
-    }
-
-    if (fileExisted && !lines.empty() && lines[0] == "# log") {
-        startLoggingForFile(fileName);
-    }
+    fileCoordinator_.loadFile(fileName);
 }
 
 void WorkSpace::saveFile(const std::string& fileName) {
-    if (!documentManager_.isFileOpen(fileName)) {
-        throw std::runtime_error("File not open: " + fileName);
-    }
-
-    auto editor = documentManager_.getEditor(fileName);
-    if (!editor) {
-        throw std::runtime_error("Editor not found: " + fileName);
-    }
-
-    auto textEditor = std::dynamic_pointer_cast<TextEditor>(editor);
-    if (textEditor) {
-        const auto& lines = textEditor->getLines();
-        fileSystemService_.saveFile(fileName, lines);
-        documentManager_.setFileModified(fileName, false);
-    } else {
-        throw std::runtime_error("Unsupported editor type");
-    }
+    fileCoordinator_.saveFile(fileName);
 }
 
 void WorkSpace::saveAllFiles() {
-    auto openFiles = documentManager_.getOpenFiles();
-    for (const auto& fileName : openFiles) {
-        try {
-            saveFile(fileName);
-        } catch (const std::exception& e) {
-            std::cerr << "Failed to save " << fileName << ": " << e.what() << std::endl;
-        }
-    }
+    fileCoordinator_.saveAllFiles();
 }
 
 void WorkSpace::initFile(const std::string& fileName, bool withLog) {
-    if (documentManager_.isFileOpen(fileName)) {
-        documentManager_.setActiveFile(fileName);
-        return;
-    }
-
-    auto editor = createTextEditor();
-    auto textEditor = std::dynamic_pointer_cast<TextEditor>(editor);
-
-    if (withLog) {
-        textEditor->setLines({ "# log" });
-    } else {
-        textEditor->clear();
-    }
-
-    textEditor->setModified(true);
-    documentManager_.openFile(fileName, editor);
-    documentManager_.setFileModified(fileName, true);
-    documentManager_.setActiveFile(fileName);
-
-    if (withLog) {
-        startLoggingForFile(fileName);
-    }
+    fileCoordinator_.initFile(fileName, withLog);
 }
 
 // 目录树（委托给DirectoryService）
@@ -278,7 +211,7 @@ std::shared_ptr<TreeNode> WorkSpace::getDirectoryTreeStructure(const std::string
 }
 
 std::vector<FileInfo> WorkSpace::getFileInfoList() const {
-    return documentManager_.getFileInfoList();
+    return editorCoordinator_.getFileInfoList();
 }
 
 // 服务引用
@@ -299,20 +232,20 @@ LoggerManager& WorkSpace::getLoggerManager() {
 }
 
 bool WorkSpace::hasUnsavedFiles() const {
-    return documentManager_.hasUnsavedFiles();
+    return editorCoordinator_.hasUnsavedFiles();
 }
 
-// 文件日志管理
+// 文件日志管理（委托给LogCoordinator）
 void WorkSpace::startLoggingForFile(const std::string& fileName) {
-    loggerManager_.startLoggingForFile(fileName);
+    logCoordinator_.startLoggingForFile(fileName);
 }
 
 void WorkSpace::stopLoggingForFile(const std::string& fileName) {
-    loggerManager_.stopLoggingForFile(fileName);
+    logCoordinator_.stopLoggingForFile(fileName);
 }
 
 bool WorkSpace::isLoggingForFile(const std::string& fileName) const {
-    return loggerManager_.isLoggingForFile(fileName);
+    return logCoordinator_.isLoggingForFile(fileName);
 }
 
 void WorkSpace::showLog(const std::string& fileName) {
@@ -324,7 +257,7 @@ void WorkSpace::showLog(const std::string& fileName) {
             return;
         }
     }
-    loggerManager_.showLog(targetFile);
+    logCoordinator_.showLog(targetFile);
 }
 
 std::shared_ptr<TextEditor> WorkSpace::createTextEditor() const {
@@ -353,11 +286,11 @@ bool WorkSpace::isExitRequested() const {
     return exitRequested_;
 }
 
-// 配置管理（委托给ConfigManager）
+// 配置管理（委托给ConfigCoordinator）
 void WorkSpace::saveConfig(const std::string& configFile) {
-    configManager_.saveConfig(configFile);
+    configCoordinator_.saveConfig(configFile);
 }
 
 bool WorkSpace::loadConfig(const std::string& configFile) {
-    return configManager_.loadConfig(configFile);
+    return configCoordinator_.loadConfig(configFile);
 }

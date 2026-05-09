@@ -19,6 +19,10 @@
 #include "DirectoryService.h"
 #include "ConfigSerializer.h"
 #include "ConfigManager.h"
+#include "FileCoordinator.h"
+#include "EditorCoordinator.h"
+#include "LogCoordinator.h"
+#include "ConfigCoordinator.h"
 
 class LoggerManager;
 
@@ -45,16 +49,13 @@ private:
     std::vector<std::string> loggedFiles_;
 };
 
-// FileIOService别名（FileSystemService拆分后剩余的纯文件I/O部分）
-using FileIOService = FileSystemService;
-
-// WorkSpace类：作为协调员，使用ObserverManager管理观察者
+// WorkSpace类：作为协调员门面，组合四大协调器
 class WorkSpace : public ObserverManager {
 public:
     WorkSpace();
     ~WorkSpace();
 
-    // 文件管理（委托给DocumentManager）
+    // 文件管理（委托给EditorCoordinator）
     void openFile(const std::string& fileName);
     void closeFile(const std::string& fileName);
     void setActiveFile(const std::string& fileName);
@@ -66,11 +67,11 @@ public:
     void setFileModified(const std::string& fileName, bool modified);
     bool isFileModified(const std::string& fileName) const;
 
-    // 日志开关
+    // 日志开关（委托给LogCoordinator）
     void setLogEnabled(bool enabled);
     bool isLogEnabled() const;
 
-    // 文件日志管理
+    // 文件日志管理（委托给LogCoordinator）
     void startLoggingForFile(const std::string& fileName);
     void stopLoggingForFile(const std::string& fileName);
     bool isLoggingForFile(const std::string& fileName) const;
@@ -86,7 +87,7 @@ public:
     // 观察者通知（公开接口，委托给ObserverManager）
     void notify(const Event& event);
 
-    // 文件加载和保存
+    // 文件加载和保存（委托给FileCoordinator）
     void loadFile(const std::string& fileName);
     void saveFile(const std::string& fileName);
     void saveAllFiles();
@@ -96,7 +97,7 @@ public:
     std::string getDirectoryTree(const std::string& path = "");
     std::shared_ptr<TreeNode> getDirectoryTreeStructure(const std::string& path = "");
 
-    // 文件信息列表
+    // 文件信息列表（委托给EditorCoordinator）
     std::vector<FileInfo> getFileInfoList() const;
 
     // 获取服务引用
@@ -105,18 +106,19 @@ public:
     OutputService& getOutputService();
     LoggerManager& getLoggerManager();
 
-    // 检查未保存文件
+    // 检查未保存文件（委托给EditorCoordinator）
     bool hasUnsavedFiles() const;
 
     // 退出管理
     void requestExit();
     bool isExitRequested() const;
 
-    // 配置管理（委托给ConfigManager）
+    // 配置管理（委托给ConfigCoordinator）
     void saveConfig(const std::string& configFile = ".editor_config");
     bool loadConfig(const std::string& configFile = ".editor_config");
 
 private:
+    // 服务层（按依赖顺序声明）
     DocumentManager documentManager_;
     FileSystemService fileSystemService_;
     OutputService outputService_;
@@ -124,7 +126,14 @@ private:
     DirectoryService directoryService_;
     ConfigSerializer configSerializer_;
     ConfigManager configManager_;
-    bool logEnabled_;
+
+    // 协调器层（依赖服务层）
+    EditorCoordinator editorCoordinator_;
+    FileCoordinator fileCoordinator_;
+    LogCoordinator logCoordinator_;
+    ConfigCoordinator configCoordinator_;
+
+    // 状态变量
     bool exitRequested_;
 
     std::shared_ptr<TextEditor> createTextEditor() const;

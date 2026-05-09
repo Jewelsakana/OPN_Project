@@ -2,9 +2,99 @@
 #include "WorkSpace.h"
 #include "TextEditor.h"
 #include "OutputService.h"
+#include "CommandFactory.h"
 #include <iostream>
 #include <vector>
 #include <algorithm>
+
+// 自注册：工作区命令工厂
+namespace {
+    static bool _reg_load = []() {
+        CommandFactory::registerWorkSpaceCreator(WorkSpaceCommandType::Load,
+            [](const WorkSpaceParsedCommand& ws) -> std::unique_ptr<Command> {
+                if (ws.fileName)
+                    return std::make_unique<LoadCommand>(*ws.fileName);
+                return nullptr;
+            });
+        return true;
+    }();
+
+    static bool _reg_save = []() {
+        CommandFactory::registerWorkSpaceCreator(WorkSpaceCommandType::Save,
+            [](const WorkSpaceParsedCommand& ws) -> std::unique_ptr<Command> {
+                return std::make_unique<SaveCommand>(ws.target.value_or(""));
+            });
+        return true;
+    }();
+
+    static bool _reg_init = []() {
+        CommandFactory::registerWorkSpaceCreator(WorkSpaceCommandType::Init,
+            [](const WorkSpaceParsedCommand& ws) -> std::unique_ptr<Command> {
+                if (ws.fileName)
+                    return std::make_unique<InitCommand>(*ws.fileName, ws.withLog.value_or(false));
+                return nullptr;
+            });
+        return true;
+    }();
+
+    static bool _reg_close = []() {
+        CommandFactory::registerWorkSpaceCreator(WorkSpaceCommandType::Close,
+            [](const WorkSpaceParsedCommand& ws) -> std::unique_ptr<Command> {
+                return std::make_unique<CloseCommand>(ws.fileName.value_or(""));
+            });
+        return true;
+    }();
+
+    static bool _reg_edit = []() {
+        CommandFactory::registerWorkSpaceCreator(WorkSpaceCommandType::Edit,
+            [](const WorkSpaceParsedCommand& ws) -> std::unique_ptr<Command> {
+                if (ws.fileName)
+                    return std::make_unique<EditCommand>(*ws.fileName);
+                return nullptr;
+            });
+        return true;
+    }();
+
+    static bool _reg_editorlist = []() {
+        CommandFactory::registerWorkSpaceCreator(WorkSpaceCommandType::EditorList,
+            [](const WorkSpaceParsedCommand&) -> std::unique_ptr<Command> {
+                return std::make_unique<EditorListCommand>();
+            });
+        return true;
+    }();
+
+    static bool _reg_dirtree = []() {
+        CommandFactory::registerWorkSpaceCreator(WorkSpaceCommandType::DirTree,
+            [](const WorkSpaceParsedCommand& ws) -> std::unique_ptr<Command> {
+                return std::make_unique<DirTreeCommand>(ws.path.value_or(""));
+            });
+        return true;
+    }();
+
+    static bool _reg_undo = []() {
+        CommandFactory::registerWorkSpaceCreator(WorkSpaceCommandType::Undo,
+            [](const WorkSpaceParsedCommand&) -> std::unique_ptr<Command> {
+                return std::make_unique<UndoCommand>();
+            });
+        return true;
+    }();
+
+    static bool _reg_redo = []() {
+        CommandFactory::registerWorkSpaceCreator(WorkSpaceCommandType::Redo,
+            [](const WorkSpaceParsedCommand&) -> std::unique_ptr<Command> {
+                return std::make_unique<RedoCommand>();
+            });
+        return true;
+    }();
+
+    static bool _reg_exit = []() {
+        CommandFactory::registerWorkSpaceCreator(WorkSpaceCommandType::Exit,
+            [](const WorkSpaceParsedCommand&) -> std::unique_ptr<Command> {
+                return std::make_unique<ExitCommand>();
+            });
+        return true;
+    }();
+}
 
 // 尝试使用filesystem库
 #if __has_include(<filesystem>) && (!defined(__GNUC__) || __GNUC__ >= 9)
@@ -20,21 +110,33 @@
 #  define HAS_FILESYSTEM 0
 #endif
 
+// WorkSpaceCommand protected helpers
+
+void WorkSpaceCommand::checkWorkSpace() const {
+    if (!workspace_) {
+        throw std::runtime_error("No workspace associated");
+    }
+}
+
+std::shared_ptr<Editor> WorkSpaceCommand::getActiveEditorOrThrow() const {
+    auto editor = workspace_->getActiveEditor();
+    if (!editor) {
+        throw std::runtime_error("No active editor");
+    }
+    return editor;
+}
+
 // LoadCommand实现
 LoadCommand::LoadCommand(const std::string& fileName) : fileName_(fileName), wasOpen_(false) {}
 
 void LoadCommand::execute() {
-    if (!workspace_) {
-        throw std::runtime_error("LoadCommand: No workspace associated");
-    }
+    checkWorkSpace();
     wasOpen_ = workspace_->isFileOpen(fileName_);
     workspace_->loadFile(fileName_);
 }
 
 void LoadCommand::undo() {
-    if (!workspace_) {
-        throw std::runtime_error("LoadCommand: No workspace associated");
-    }
+    checkWorkSpace();
     // 如果文件之前未打开，则关闭它
     if (!wasOpen_ && workspace_->isFileOpen(fileName_)) {
         workspace_->closeFile(fileName_);
@@ -50,9 +152,7 @@ bool LoadCommand::isReadOnly() const {
 SaveCommand::SaveCommand(const std::string& target) : target_(target) {}
 
 void SaveCommand::execute() {
-    if (!workspace_) {
-        throw std::runtime_error("SaveCommand: No workspace associated");
-    }
+    checkWorkSpace();
 
     if (target_.empty()) {
         // 保存当前活动文件
@@ -85,17 +185,13 @@ InitCommand::InitCommand(const std::string& fileName, bool withLog)
     : fileName_(fileName), withLog_(withLog), wasOpen_(false) {}
 
 void InitCommand::execute() {
-    if (!workspace_) {
-        throw std::runtime_error("InitCommand: No workspace associated");
-    }
+    checkWorkSpace();
     wasOpen_ = workspace_->isFileOpen(fileName_);
     workspace_->initFile(fileName_, withLog_);
 }
 
 void InitCommand::undo() {
-    if (!workspace_) {
-        throw std::runtime_error("InitCommand: No workspace associated");
-    }
+    checkWorkSpace();
     // 如果文件之前未打开，则关闭它
     if (!wasOpen_ && workspace_->isFileOpen(fileName_)) {
         workspace_->closeFile(fileName_);
@@ -111,9 +207,7 @@ bool InitCommand::isReadOnly() const {
 CloseCommand::CloseCommand(const std::string& fileName) : fileName_(fileName) {}
 
 void CloseCommand::execute() {
-    if (!workspace_) {
-        throw std::runtime_error("CloseCommand: No workspace associated");
-    }
+    checkWorkSpace();
 
     std::string targetFile = fileName_;
     if (targetFile.empty()) {
@@ -157,9 +251,7 @@ bool CloseCommand::isReadOnly() const {
 EditCommand::EditCommand(const std::string& fileName) : fileName_(fileName) {}
 
 void EditCommand::execute() {
-    if (!workspace_) {
-        throw std::runtime_error("EditCommand: No workspace associated");
-    }
+    checkWorkSpace();
 
     // 检查文件是否已打开
     if (!workspace_->isFileOpen(fileName_)) {
@@ -174,9 +266,7 @@ void EditCommand::execute() {
 }
 
 void EditCommand::undo() {
-    if (!workspace_) {
-        throw std::runtime_error("EditCommand: No workspace associated");
-    }
+    checkWorkSpace();
 
     // 切换回之前的活动文件（如果仍然打开）
     if (!previousActiveFile_.empty() && workspace_->isFileOpen(previousActiveFile_)) {
@@ -193,9 +283,7 @@ bool EditCommand::isReadOnly() const {
 EditorListCommand::EditorListCommand() {}
 
 void EditorListCommand::execute() {
-    if (!workspace_) {
-        throw std::runtime_error("EditorListCommand: No workspace associated");
-    }
+    checkWorkSpace();
 
     // 获取结构化文件信息列表
     auto fileInfos = workspace_->getFileInfoList();
@@ -217,9 +305,7 @@ bool EditorListCommand::isReadOnly() const {
 DirTreeCommand::DirTreeCommand(const std::string& path) : path_(path) {}
 
 void DirTreeCommand::execute() {
-    if (!workspace_) {
-        throw std::runtime_error("DirTreeCommand: No workspace associated");
-    }
+    checkWorkSpace();
 
     // 获取结构化目录树
     auto treeRoot = workspace_->getDirectoryTreeStructure(path_);
@@ -242,33 +328,20 @@ bool DirTreeCommand::isReadOnly() const {
 UndoCommand::UndoCommand() {}
 
 void UndoCommand::execute() {
-    if (!workspace_) {
-        throw std::runtime_error("UndoCommand: No workspace associated");
-    }
+    checkWorkSpace();
+    auto activeEditor = getActiveEditorOrThrow();
 
-    auto activeEditor = workspace_->getActiveEditor();
-    if (!activeEditor) {
-        throw std::runtime_error("UndoCommand: No active editor");
-    }
-
-    // 检查是否可以撤销
-    // 假设activeEditor是TextEditor类型，有canUndo()方法
-    // 实际上，Editor接口可能没有canUndo()，需要向下转型
-    auto textEditor = std::dynamic_pointer_cast<TextEditor>(activeEditor);
-    if (!textEditor) {
-        throw std::runtime_error("UndoCommand: Active editor is not a TextEditor");
-    }
-
-    if (!textEditor->canUndo()) {
+    if (!activeEditor->canUndo()) {
         throw std::runtime_error("UndoCommand: Nothing to undo");
     }
 
-    textEditor->undo();
+    activeEditor->undo();
 }
 
 void UndoCommand::undo() {
-    std::cout << "UndoCommand: Undo undo (redo) - this should not normally be called" << std::endl;
-    // TODO: 实际的撤销撤销逻辑（实际上是重做）
+    checkWorkSpace();
+    auto activeEditor = getActiveEditorOrThrow();
+    activeEditor->redo();
 }
 
 bool UndoCommand::isReadOnly() const {
@@ -279,30 +352,20 @@ bool UndoCommand::isReadOnly() const {
 RedoCommand::RedoCommand() {}
 
 void RedoCommand::execute() {
-    if (!workspace_) {
-        throw std::runtime_error("RedoCommand: No workspace associated");
-    }
+    checkWorkSpace();
+    auto activeEditor = getActiveEditorOrThrow();
 
-    auto activeEditor = workspace_->getActiveEditor();
-    if (!activeEditor) {
-        throw std::runtime_error("RedoCommand: No active editor");
-    }
-
-    auto textEditor = std::dynamic_pointer_cast<TextEditor>(activeEditor);
-    if (!textEditor) {
-        throw std::runtime_error("RedoCommand: Active editor is not a TextEditor");
-    }
-
-    if (!textEditor->canRedo()) {
+    if (!activeEditor->canRedo()) {
         throw std::runtime_error("RedoCommand: Nothing to redo");
     }
 
-    textEditor->redo();
+    activeEditor->redo();
 }
 
 void RedoCommand::undo() {
-    std::cout << "RedoCommand: Undo redo (undo) - this should not normally be called" << std::endl;
-    // TODO: 实际的撤销重做逻辑（实际上是撤销）
+    checkWorkSpace();
+    auto activeEditor = getActiveEditorOrThrow();
+    activeEditor->undo();
 }
 
 bool RedoCommand::isReadOnly() const {
@@ -313,9 +376,7 @@ bool RedoCommand::isReadOnly() const {
 ExitCommand::ExitCommand() {}
 
 void ExitCommand::execute() {
-    if (!workspace_) {
-        throw std::runtime_error("ExitCommand: No workspace associated");
-    }
+    checkWorkSpace();
 
     auto& outputService = workspace_->getOutputService();
 

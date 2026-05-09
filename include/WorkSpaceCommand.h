@@ -2,10 +2,14 @@
 #define WORKSPACECOMMAND_H
 
 #include "Command.h"
+#include "Editor.h"
 #include <string>
+#include <memory>
+#include <stdexcept>
 
 // 前向声明
 class WorkSpace;
+class TextEditor;
 
 // WorkSpaceCommand基类：所有工作区命令的基类
 // 派生自Command，用于区分工作区命令和编辑器命令
@@ -18,6 +22,12 @@ public:
 
 protected:
     WorkSpace* workspace_ = nullptr; // 关联的工作区实例
+
+    // 检查workspace是否已关联，未关联则抛出异常
+    void checkWorkSpace() const;
+
+    // 获取活动编辑器，未打开或非TextEditor则抛出异常
+    std::shared_ptr<Editor> getActiveEditorOrThrow() const;
 };
 
 // 加载文件命令

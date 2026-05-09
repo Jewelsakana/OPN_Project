@@ -137,6 +137,10 @@ public:
     void execute() override;
     void undo() override;
     bool isReadOnly() const override;
+
+private:
+    void ensureNoUnsavedFiles();
+    void trySaveConfig();
 };
 
 #endif // WORKSPACECOMMAND_H

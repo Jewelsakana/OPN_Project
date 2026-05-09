@@ -18,8 +18,16 @@ bool LogCoordinator::isLoggingForFile(const std::string& fileName) const {
     return loggerManager_.isLoggingForFile(fileName);
 }
 
-void LogCoordinator::showLog(const std::string& fileName) {
-    loggerManager_.showLog(fileName);
+void LogCoordinator::showLog(const std::string& fileName, const std::string& activeFileName) {
+    std::string targetFile = fileName;
+    if (targetFile.empty()) {
+        targetFile = activeFileName;
+        if (targetFile.empty()) {
+            outputService_.outputLine("Error: No active file to show log");
+            return;
+        }
+    }
+    loggerManager_.showLog(targetFile);
 }
 
 std::vector<std::string> LogCoordinator::getLoggedFiles() const {

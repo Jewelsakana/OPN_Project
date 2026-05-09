@@ -6,29 +6,9 @@
 
 // 自注册：日志命令工厂
 namespace {
-    static bool _reg_logon = []() {
-        CommandFactory::registerWorkSpaceCreator(WorkSpaceCommandType::Logon,
-            [](const WorkSpaceParsedCommand& ws) -> std::unique_ptr<Command> {
-                return std::make_unique<LogonCommand>(ws.fileName.value_or(""));
-            });
-        return true;
-    }();
-
-    static bool _reg_logoff = []() {
-        CommandFactory::registerWorkSpaceCreator(WorkSpaceCommandType::Logoff,
-            [](const WorkSpaceParsedCommand& ws) -> std::unique_ptr<Command> {
-                return std::make_unique<LogoffCommand>(ws.fileName.value_or(""));
-            });
-        return true;
-    }();
-
-    static bool _reg_logshow = []() {
-        CommandFactory::registerWorkSpaceCreator(WorkSpaceCommandType::Logshow,
-            [](const WorkSpaceParsedCommand& ws) -> std::unique_ptr<Command> {
-                return std::make_unique<LogshowCommand>(ws.fileName.value_or(""));
-            });
-        return true;
-    }();
+    REGISTER_WS_CMD_FILENAME(WorkSpaceCommandType::Logon, LogonCommand)
+    REGISTER_WS_CMD_FILENAME(WorkSpaceCommandType::Logoff, LogoffCommand)
+    REGISTER_WS_CMD_FILENAME(WorkSpaceCommandType::Logshow, LogshowCommand)
 }
 
 // LogonCommand实现

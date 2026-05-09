@@ -49,4 +49,88 @@ private:
         WorkSpace* workspace);
 };
 
+// 自注册宏：统一命令的注册模式
+
+// 编辑器命令（带守卫条件，ctx.lines + ctx.textEngine 固定前缀）
+#define REGISTER_EDITOR_CMD_GUARDED(ENUM, CLASS, GUARD, ...) \
+    static bool _reg_##CLASS = []() { \
+        CommandFactory::registerEditorCreator(ENUM, \
+            [](const EditorParsedCommand& ed, const EditorCommandContext& ctx) -> std::unique_ptr<Command> { \
+                if (GUARD) return std::make_unique<CLASS>(ctx.lines, ctx.textEngine, ##__VA_ARGS__); \
+                return nullptr; \
+            }); \
+        return true; \
+    }();
+
+// ShowCommand 专用（需要 ctx.outputService，有两个分支）
+#define REGISTER_EDITOR_CMD_SHOW(ENUM, CLASS) \
+    static bool _reg_##CLASS = []() { \
+        CommandFactory::registerEditorCreator(ENUM, \
+            [](const EditorParsedCommand& ed, const EditorCommandContext& ctx) -> std::unique_ptr<Command> { \
+                if (ed.startLine && ed.endLine) \
+                    return std::make_unique<CLASS>(ctx.lines, ctx.textEngine, ctx.outputService, *ed.startLine, *ed.endLine); \
+                else \
+                    return std::make_unique<CLASS>(ctx.lines, ctx.textEngine, ctx.outputService); \
+            }); \
+        return true; \
+    }();
+
+// 工作区命令
+
+#define REGISTER_WS_CMD_NOARGS(ENUM, CLASS) \
+    static bool _reg_##CLASS = []() { \
+        CommandFactory::registerWorkSpaceCreator(ENUM, \
+            [](const WorkSpaceParsedCommand&) -> std::unique_ptr<Command> { \
+                return std::make_unique<CLASS>(); \
+            }); \
+        return true; \
+    }();
+
+#define REGISTER_WS_CMD_FILENAME(ENUM, CLASS) \
+    static bool _reg_##CLASS = []() { \
+        CommandFactory::registerWorkSpaceCreator(ENUM, \
+            [](const WorkSpaceParsedCommand& ws) -> std::unique_ptr<Command> { \
+                return std::make_unique<CLASS>(ws.fileName.value_or("")); \
+            }); \
+        return true; \
+    }();
+
+#define REGISTER_WS_CMD_REQ_FILENAME(ENUM, CLASS) \
+    static bool _reg_##CLASS = []() { \
+        CommandFactory::registerWorkSpaceCreator(ENUM, \
+            [](const WorkSpaceParsedCommand& ws) -> std::unique_ptr<Command> { \
+                if (ws.fileName) return std::make_unique<CLASS>(*ws.fileName); \
+                return nullptr; \
+            }); \
+        return true; \
+    }();
+
+#define REGISTER_WS_CMD_PATH(ENUM, CLASS) \
+    static bool _reg_##CLASS = []() { \
+        CommandFactory::registerWorkSpaceCreator(ENUM, \
+            [](const WorkSpaceParsedCommand& ws) -> std::unique_ptr<Command> { \
+                return std::make_unique<CLASS>(ws.path.value_or("")); \
+            }); \
+        return true; \
+    }();
+
+#define REGISTER_WS_CMD_TARGET(ENUM, CLASS) \
+    static bool _reg_##CLASS = []() { \
+        CommandFactory::registerWorkSpaceCreator(ENUM, \
+            [](const WorkSpaceParsedCommand& ws) -> std::unique_ptr<Command> { \
+                return std::make_unique<CLASS>(ws.target.value_or("")); \
+            }); \
+        return true; \
+    }();
+
+#define REGISTER_WS_CMD_INIT(ENUM, CLASS) \
+    static bool _reg_##CLASS = []() { \
+        CommandFactory::registerWorkSpaceCreator(ENUM, \
+            [](const WorkSpaceParsedCommand& ws) -> std::unique_ptr<Command> { \
+                if (ws.fileName) return std::make_unique<CLASS>(*ws.fileName, ws.withLog.value_or(false)); \
+                return nullptr; \
+            }); \
+        return true; \
+    }();
+
 #endif // COMMANDFACTORY_H

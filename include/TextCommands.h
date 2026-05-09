@@ -23,11 +23,15 @@ public:
     virtual ~TextCommand() = default;
 
 protected:
-    std::vector<std::string>& lines;  // 引用文本行数组
-    TextEngine* textEngine;           // TextEngine指针
+    std::vector<std::string>& lines() { return lines_; }
+    TextEngine* textEngine() { return textEngine_; }
 
     // 记录指定位置将被删除的文本，用于undo
     bool recordDeletedText(int row, int col, int length, std::string& deletedTextOut);
+
+private:
+    std::vector<std::string>& lines_;  // 引用文本行数组
+    TextEngine* textEngine_;           // TextEngine指针
 };
 
 // InsertCommand类：插入文本命令

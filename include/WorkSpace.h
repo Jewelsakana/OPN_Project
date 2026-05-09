@@ -137,6 +137,11 @@ private:
     bool exitRequested_;
 
     std::shared_ptr<TextEditor> createTextEditor() const;
+
+    // restoreFromMemento 辅助方法
+    void restoreOpenFiles(const WorkspaceMemento& memento);
+    void restoreModifiedStates(const WorkspaceMemento& memento);
+    void restoreLogState(const WorkspaceMemento& memento);
 };
 
 #endif // WORKSPACE_H

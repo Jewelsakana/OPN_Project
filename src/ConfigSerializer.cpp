@@ -45,6 +45,48 @@ void ConfigSerializer::saveConfig(const std::string& fileName, const WorkspaceMe
     });
 }
 
+void ConfigSerializer::parseConfigLine(const std::string& key, const std::string& value,
+                                        std::vector<std::string>& openFiles,
+                                        std::string& activeFileName,
+                                        std::map<std::string, bool>& fileModifiedStates,
+                                        bool& logEnabled,
+                                        std::vector<std::string>& loggedFiles) {
+    if (key == "openFiles") {
+        if (!value.empty()) {
+            auto files = StringUtils::splitString(value, ',');
+            for (const auto& f : files) {
+                std::string trimmed = StringUtils::trim(f);
+                if (!trimmed.empty()) openFiles.push_back(trimmed);
+            }
+        }
+    } else if (key == "activeFileName") {
+        activeFileName = value;
+    } else if (key == "fileModifiedStates") {
+        if (!value.empty()) {
+            auto pairs = StringUtils::splitString(value, ',');
+            for (const auto& pair : pairs) {
+                std::string trimmed = StringUtils::trim(pair);
+                size_t eqPos = trimmed.find('=');
+                if (eqPos != std::string::npos) {
+                    std::string fk = StringUtils::trim(trimmed.substr(0, eqPos));
+                    std::string bv = StringUtils::trim(trimmed.substr(eqPos + 1));
+                    fileModifiedStates[fk] = (bv == "true");
+                }
+            }
+        }
+    } else if (key == "logEnabled") {
+        logEnabled = (value == "true");
+    } else if (key == "loggedFiles") {
+        if (!value.empty()) {
+            auto files = StringUtils::splitString(value, ',');
+            for (const auto& f : files) {
+                std::string trimmed = StringUtils::trim(f);
+                if (!trimmed.empty()) loggedFiles.push_back(trimmed);
+            }
+        }
+    }
+}
+
 std::shared_ptr<WorkspaceMemento> ConfigSerializer::loadConfig(const std::string& fileName) {
     return safeExecute([this, &fileName]() -> std::shared_ptr<WorkspaceMemento> {
         std::ifstream file(fileName);
@@ -68,45 +110,13 @@ std::shared_ptr<WorkspaceMemento> ConfigSerializer::loadConfig(const std::string
 
             std::string key = StringUtils::trim(line.substr(0, colonPos));
             std::string value = StringUtils::trim(line.substr(colonPos + 1));
-
-            if (key == "openFiles") {
-                if (!value.empty()) {
-                    auto files = StringUtils::splitString(value, ',');
-                    for (const auto& f : files) {
-                        std::string trimmed = StringUtils::trim(f);
-                        if (!trimmed.empty()) openFiles.push_back(trimmed);
-                    }
-                }
-            } else if (key == "activeFileName") {
-                activeFileName = value;
-            } else if (key == "fileModifiedStates") {
-                if (!value.empty()) {
-                    auto pairs = StringUtils::splitString(value, ',');
-                    for (const auto& pair : pairs) {
-                        std::string trimmed = StringUtils::trim(pair);
-                        size_t eqPos = trimmed.find('=');
-                        if (eqPos != std::string::npos) {
-                            std::string fk = StringUtils::trim(trimmed.substr(0, eqPos));
-                            std::string bv = StringUtils::trim(trimmed.substr(eqPos + 1));
-                            fileModifiedStates[fk] = (bv == "true");
-                        }
-                    }
-                }
-            } else if (key == "logEnabled") {
-                logEnabled = (value == "true");
-            } else if (key == "loggedFiles") {
-                if (!value.empty()) {
-                    auto files = StringUtils::splitString(value, ',');
-                    for (const auto& f : files) {
-                        std::string trimmed = StringUtils::trim(f);
-                        if (!trimmed.empty()) loggedFiles.push_back(trimmed);
-                    }
-                }
-            }
+            parseConfigLine(key, value, openFiles, activeFileName,
+                            fileModifiedStates, logEnabled, loggedFiles);
         }
 
         file.close();
-        return std::make_shared<WorkspaceMemento>(openFiles, activeFileName, fileModifiedStates, logEnabled, loggedFiles);
+        return std::make_shared<WorkspaceMemento>(openFiles, activeFileName,
+                                                   fileModifiedStates, logEnabled, loggedFiles);
     });
 }
 

@@ -9,91 +9,16 @@
 
 // 自注册：工作区命令工厂
 namespace {
-    static bool _reg_load = []() {
-        CommandFactory::registerWorkSpaceCreator(WorkSpaceCommandType::Load,
-            [](const WorkSpaceParsedCommand& ws) -> std::unique_ptr<Command> {
-                if (ws.fileName)
-                    return std::make_unique<LoadCommand>(*ws.fileName);
-                return nullptr;
-            });
-        return true;
-    }();
-
-    static bool _reg_save = []() {
-        CommandFactory::registerWorkSpaceCreator(WorkSpaceCommandType::Save,
-            [](const WorkSpaceParsedCommand& ws) -> std::unique_ptr<Command> {
-                return std::make_unique<SaveCommand>(ws.target.value_or(""));
-            });
-        return true;
-    }();
-
-    static bool _reg_init = []() {
-        CommandFactory::registerWorkSpaceCreator(WorkSpaceCommandType::Init,
-            [](const WorkSpaceParsedCommand& ws) -> std::unique_ptr<Command> {
-                if (ws.fileName)
-                    return std::make_unique<InitCommand>(*ws.fileName, ws.withLog.value_or(false));
-                return nullptr;
-            });
-        return true;
-    }();
-
-    static bool _reg_close = []() {
-        CommandFactory::registerWorkSpaceCreator(WorkSpaceCommandType::Close,
-            [](const WorkSpaceParsedCommand& ws) -> std::unique_ptr<Command> {
-                return std::make_unique<CloseCommand>(ws.fileName.value_or(""));
-            });
-        return true;
-    }();
-
-    static bool _reg_edit = []() {
-        CommandFactory::registerWorkSpaceCreator(WorkSpaceCommandType::Edit,
-            [](const WorkSpaceParsedCommand& ws) -> std::unique_ptr<Command> {
-                if (ws.fileName)
-                    return std::make_unique<EditCommand>(*ws.fileName);
-                return nullptr;
-            });
-        return true;
-    }();
-
-    static bool _reg_editorlist = []() {
-        CommandFactory::registerWorkSpaceCreator(WorkSpaceCommandType::EditorList,
-            [](const WorkSpaceParsedCommand&) -> std::unique_ptr<Command> {
-                return std::make_unique<EditorListCommand>();
-            });
-        return true;
-    }();
-
-    static bool _reg_dirtree = []() {
-        CommandFactory::registerWorkSpaceCreator(WorkSpaceCommandType::DirTree,
-            [](const WorkSpaceParsedCommand& ws) -> std::unique_ptr<Command> {
-                return std::make_unique<DirTreeCommand>(ws.path.value_or(""));
-            });
-        return true;
-    }();
-
-    static bool _reg_undo = []() {
-        CommandFactory::registerWorkSpaceCreator(WorkSpaceCommandType::Undo,
-            [](const WorkSpaceParsedCommand&) -> std::unique_ptr<Command> {
-                return std::make_unique<UndoCommand>();
-            });
-        return true;
-    }();
-
-    static bool _reg_redo = []() {
-        CommandFactory::registerWorkSpaceCreator(WorkSpaceCommandType::Redo,
-            [](const WorkSpaceParsedCommand&) -> std::unique_ptr<Command> {
-                return std::make_unique<RedoCommand>();
-            });
-        return true;
-    }();
-
-    static bool _reg_exit = []() {
-        CommandFactory::registerWorkSpaceCreator(WorkSpaceCommandType::Exit,
-            [](const WorkSpaceParsedCommand&) -> std::unique_ptr<Command> {
-                return std::make_unique<ExitCommand>();
-            });
-        return true;
-    }();
+    REGISTER_WS_CMD_REQ_FILENAME(WorkSpaceCommandType::Load, LoadCommand)
+    REGISTER_WS_CMD_TARGET(WorkSpaceCommandType::Save, SaveCommand)
+    REGISTER_WS_CMD_INIT(WorkSpaceCommandType::Init, InitCommand)
+    REGISTER_WS_CMD_FILENAME(WorkSpaceCommandType::Close, CloseCommand)
+    REGISTER_WS_CMD_REQ_FILENAME(WorkSpaceCommandType::Edit, EditCommand)
+    REGISTER_WS_CMD_NOARGS(WorkSpaceCommandType::EditorList, EditorListCommand)
+    REGISTER_WS_CMD_PATH(WorkSpaceCommandType::DirTree, DirTreeCommand)
+    REGISTER_WS_CMD_NOARGS(WorkSpaceCommandType::Undo, UndoCommand)
+    REGISTER_WS_CMD_NOARGS(WorkSpaceCommandType::Redo, RedoCommand)
+    REGISTER_WS_CMD_NOARGS(WorkSpaceCommandType::Exit, ExitCommand)
 }
 
 // 尝试使用filesystem库
@@ -375,12 +300,8 @@ bool RedoCommand::isReadOnly() const {
 // ExitCommand实现
 ExitCommand::ExitCommand() {}
 
-void ExitCommand::execute() {
-    checkWorkSpace();
-
+void ExitCommand::ensureNoUnsavedFiles() {
     auto& outputService = workspace_->getOutputService();
-
-    // 检查是否有未保存的文件
     std::vector<std::string> unsavedFiles;
     auto openFiles = workspace_->getOpenFiles();
     for (const auto& fileName : openFiles) {
@@ -395,24 +316,26 @@ void ExitCommand::execute() {
             errorMsg += "  " + fileName + "\n";
         }
         errorMsg += "Please save them before exiting.";
-
-        // 使用OutputService输出错误信息
         outputService.outputError(errorMsg);
         throw std::runtime_error(errorMsg);
     }
+}
 
-    // 所有文件已保存，可以退出
-    // 首先保存工作区配置到文件
+void ExitCommand::trySaveConfig() {
+    auto& outputService = workspace_->getOutputService();
     try {
         workspace_->saveConfig(".editor_config");
     } catch (const std::exception& e) {
-        // 配置保存失败不应该阻止退出，但记录警告
         outputService.outputError("Warning: Failed to save configuration: " + std::string(e.what()));
     }
+}
 
-    // 设置退出标志，由上层调用者处理实际退出
+void ExitCommand::execute() {
+    checkWorkSpace();
+    ensureNoUnsavedFiles();
+    trySaveConfig();
     workspace_->requestExit();
-    outputService.outputLine("ExitCommand: All files saved. Exiting program...");
+    workspace_->getOutputService().outputLine("ExitCommand: All files saved. Exiting program...");
 }
 
 void ExitCommand::undo() {

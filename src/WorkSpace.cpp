@@ -9,8 +9,6 @@
 #include <sstream>
 #include <iomanip>
 #include <set>
-#include <chrono>
-#include <ctime>
 
 // WorkspaceMemento实现
 
@@ -134,15 +132,16 @@ std::shared_ptr<WorkspaceMemento> WorkSpace::createMemento() const {
                                               logCoordinator_.isLogEnabled(), loggedFiles);
 }
 
-void WorkSpace::restoreFromMemento(const WorkspaceMemento& memento) {
+void WorkSpace::restoreOpenFiles(const WorkspaceMemento& memento) {
     editorCoordinator_.clear();
-
     const auto& openFiles = memento.getOpenFiles();
     for (const auto& fileName : openFiles) {
         auto editor = createTextEditor();
         editorCoordinator_.openFile(fileName, editor);
     }
+}
 
+void WorkSpace::restoreModifiedStates(const WorkspaceMemento& memento) {
     const auto& modifiedStates = memento.getFileModifiedStates();
     for (const auto& pair : modifiedStates) {
         if (editorCoordinator_.isFileOpen(pair.first)) {
@@ -154,7 +153,9 @@ void WorkSpace::restoreFromMemento(const WorkspaceMemento& memento) {
     if (!activeFileName.empty() && editorCoordinator_.isFileOpen(activeFileName)) {
         editorCoordinator_.setActiveFile(activeFileName);
     }
+}
 
+void WorkSpace::restoreLogState(const WorkspaceMemento& memento) {
     logCoordinator_.setLogEnabled(memento.isLogEnabled());
 
     const auto& loggedFiles = memento.getLoggedFiles();
@@ -166,6 +167,7 @@ void WorkSpace::restoreFromMemento(const WorkspaceMemento& memento) {
         }
     }
 
+    const auto& openFiles = memento.getOpenFiles();
     for (const auto& fileName : openFiles) {
         if (loggedFilesSet.find(fileName) != loggedFilesSet.end()) {
             continue;
@@ -181,6 +183,12 @@ void WorkSpace::restoreFromMemento(const WorkspaceMemento& memento) {
             }
         }
     }
+}
+
+void WorkSpace::restoreFromMemento(const WorkspaceMemento& memento) {
+    restoreOpenFiles(memento);
+    restoreModifiedStates(memento);
+    restoreLogState(memento);
 }
 
 // 文件加载和保存（委托给FileCoordinator）
@@ -249,15 +257,7 @@ bool WorkSpace::isLoggingForFile(const std::string& fileName) const {
 }
 
 void WorkSpace::showLog(const std::string& fileName) {
-    std::string targetFile = fileName;
-    if (targetFile.empty()) {
-        targetFile = getActiveFileName();
-        if (targetFile.empty()) {
-            outputService_.outputLine("Error: No active file to show log");
-            return;
-        }
-    }
-    logCoordinator_.showLog(targetFile);
+    logCoordinator_.showLog(fileName, getActiveFileName());
 }
 
 std::shared_ptr<TextEditor> WorkSpace::createTextEditor() const {
@@ -268,13 +268,7 @@ std::shared_ptr<TextEditor> WorkSpace::createTextEditor() const {
 }
 
 void WorkSpace::notifySessionStart() {
-    auto now = std::chrono::system_clock::now();
-    auto time = std::chrono::system_clock::to_time_t(now);
-    std::tm tm = *std::localtime(&time);
-    std::stringstream ss;
-    ss << std::put_time(&tm, "%Y-%m-%d %H:%M:%S");
-    std::string timestamp = ss.str();
-    Event event("session start at " + timestamp, "");
+    Event event("session start at " + Event::currentTimestampString(), "");
     notify(event);
 }
 

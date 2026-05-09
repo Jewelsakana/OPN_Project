@@ -3,67 +3,22 @@
 
 // 自注册：编辑器命令工厂
 namespace {
-    static bool _reg_append = []() {
-        CommandFactory::registerEditorCreator(EditorCommandType::Append,
-            [](const EditorParsedCommand& ed, const EditorCommandContext& ctx) -> std::unique_ptr<Command> {
-                if (ed.text)
-                    return std::make_unique<AppendCommand>(ctx.lines, ctx.textEngine, *ed.text);
-                return nullptr;
-            });
-        return true;
-    }();
-
-    static bool _reg_insert = []() {
-        CommandFactory::registerEditorCreator(EditorCommandType::Insert,
-            [](const EditorParsedCommand& ed, const EditorCommandContext& ctx) -> std::unique_ptr<Command> {
-                if (ed.line && ed.column && ed.text)
-                    return std::make_unique<InsertCommand>(ctx.lines, ctx.textEngine, *ed.line, *ed.column, *ed.text);
-                return nullptr;
-            });
-        return true;
-    }();
-
-    static bool _reg_delete = []() {
-        CommandFactory::registerEditorCreator(EditorCommandType::Delete,
-            [](const EditorParsedCommand& ed, const EditorCommandContext& ctx) -> std::unique_ptr<Command> {
-                if (ed.line && ed.column && ed.length)
-                    return std::make_unique<DeleteCommand>(ctx.lines, ctx.textEngine, *ed.line, *ed.column, *ed.length);
-                return nullptr;
-            });
-        return true;
-    }();
-
-    static bool _reg_replace = []() {
-        CommandFactory::registerEditorCreator(EditorCommandType::Replace,
-            [](const EditorParsedCommand& ed, const EditorCommandContext& ctx) -> std::unique_ptr<Command> {
-                if (ed.line && ed.column && ed.length && ed.text)
-                    return std::make_unique<ReplaceCommand>(ctx.lines, ctx.textEngine, *ed.line, *ed.column, *ed.length, *ed.text);
-                return nullptr;
-            });
-        return true;
-    }();
-
-    static bool _reg_show = []() {
-        CommandFactory::registerEditorCreator(EditorCommandType::Show,
-            [](const EditorParsedCommand& ed, const EditorCommandContext& ctx) -> std::unique_ptr<Command> {
-                if (ed.startLine && ed.endLine)
-                    return std::make_unique<ShowCommand>(ctx.lines, ctx.textEngine, ctx.outputService, *ed.startLine, *ed.endLine);
-                else
-                    return std::make_unique<ShowCommand>(ctx.lines, ctx.textEngine, ctx.outputService);
-            });
-        return true;
-    }();
+    REGISTER_EDITOR_CMD_GUARDED(EditorCommandType::Append, AppendCommand, ed.text, *ed.text)
+    REGISTER_EDITOR_CMD_GUARDED(EditorCommandType::Insert, InsertCommand, ed.line && ed.column && ed.text, *ed.line, *ed.column, *ed.text)
+    REGISTER_EDITOR_CMD_GUARDED(EditorCommandType::Delete, DeleteCommand, ed.line && ed.column && ed.length, *ed.line, *ed.column, *ed.length)
+    REGISTER_EDITOR_CMD_GUARDED(EditorCommandType::Replace, ReplaceCommand, ed.line && ed.column && ed.length && ed.text, *ed.line, *ed.column, *ed.length, *ed.text)
+    REGISTER_EDITOR_CMD_SHOW(EditorCommandType::Show, ShowCommand)
 }
 
 // TextCommand基类实现
 TextCommand::TextCommand(std::vector<std::string>& lines, TextEngine* engine)
-    : lines(lines)
-    , textEngine(engine) {
+    : lines_(lines)
+    , textEngine_(engine) {
 }
 
 bool TextCommand::recordDeletedText(int row, int col, int length, std::string& deletedTextOut) {
-    if (row >= 1 && row <= static_cast<int>(lines.size())) {
-        const std::string& line = lines[row - 1];
+    if (row >= 1 && row <= static_cast<int>(lines_.size())) {
+        const std::string& line = lines_[row - 1];
         if (col >= 1 && col <= static_cast<int>(line.length()) + 1) {
             int startIdx = col - 1;
             int endIdx = std::min(startIdx + length, static_cast<int>(line.length()));
@@ -106,8 +61,8 @@ void InsertCommand::execute() {
     isMultiLineInsert = (newLineCount > 0);
 
     // 记录插入前的状态
-    if (pos.line >= 1 && pos.line <= static_cast<int>(lines.size())) {
-        const std::string& currentLine = lines[pos.line - 1];
+    if (pos.line >= 1 && pos.line <= static_cast<int>(lines().size())) {
+        const std::string& currentLine = lines()[pos.line - 1];
         if (pos.column >= 1 && pos.column <= static_cast<int>(currentLine.length()) + 1) {
             // 计算0-based索引
             int startIdx = pos.column - 1;
@@ -120,7 +75,7 @@ void InsertCommand::execute() {
     insertedLength = static_cast<int>(text.length());
 
     // 调用TextEngine插入文本
-    textEngine->insert(lines, pos.line, pos.column, text);
+    textEngine()->insert(lines(),pos.line, pos.column, text);
 }
 
 void InsertCommand::undo() {
@@ -138,7 +93,7 @@ void InsertCommand::undo() {
         int targetRow = pos.line - 1;  // 原始行号（0-based）
 
         // 检查边界
-        if (targetRow >= static_cast<int>(lines.size())) {
+        if (targetRow >= static_cast<int>(lines().size())) {
             return; // 行号越界
         }
 
@@ -146,17 +101,17 @@ void InsertCommand::undo() {
         std::string originalLine = beforeInsert + afterInsert;
 
         // 删除新增的行（从targetRow开始，删除addedLines行）
-        if (targetRow + addedLines <= static_cast<int>(lines.size())) {
+        if (targetRow + addedLines <= static_cast<int>(lines().size())) {
             // 删除从targetRow开始的addedLines行
-            lines.erase(lines.begin() + targetRow, lines.begin() + targetRow + addedLines);
+            lines().erase(lines().begin() + targetRow, lines().begin() + targetRow + addedLines);
 
             // 插入原始行
-            lines.insert(lines.begin() + targetRow, originalLine);
+            lines().insert(lines().begin() + targetRow, originalLine);
         }
     } else {
         // 单行插入的撤销：删除插入的文本
         if (insertedLength > 0) {
-            textEngine->deleteText(lines, pos.line, pos.column, insertedLength);
+            textEngine()->deleteText(lines(), pos.line, pos.column, insertedLength);
         }
     }
 }
@@ -184,14 +139,14 @@ void DeleteCommand::execute() {
     recordDeletedText(pos.line, pos.column, length, deletedText);
 
     // 执行删除
-    textEngine->deleteText(lines, pos.line, pos.column, length);
+    textEngine()->deleteText(lines(), pos.line, pos.column, length);
     executed = true;
 }
 
 void DeleteCommand::undo() {
     // 撤销删除：将删除的文本插回原处
     if (!deletedText.empty()) {
-        textEngine->insert(lines, pos.line, pos.column, deletedText);
+        textEngine()->insert(lines(),pos.line, pos.column, deletedText);
     } else if (executed) {
         // 即使删除的是空字符串，也需要标记为已撤销
         // 这里什么也不做
@@ -210,20 +165,20 @@ AppendCommand::AppendCommand(std::vector<std::string>& lines, TextEngine* engine
 
 void AppendCommand::execute() {
     // 记录追加前的行数
-    originalLineCount = lines.size();
+    originalLineCount = lines().size();
 
     // 执行追加
-    textEngine->append(lines, text);
+    textEngine()->append(lines(), text);
 
     // 计算追加了多少行
-    appendedLineCount = lines.size() - originalLineCount;
+    appendedLineCount = lines().size() - originalLineCount;
 }
 
 void AppendCommand::undo() {
     // 撤销追加：删除追加的行
     if (appendedLineCount > 0) {
         // 删除从originalLineCount开始的所有行
-        lines.resize(originalLineCount);
+        lines().resize(originalLineCount);
     }
 }
 
@@ -281,11 +236,11 @@ void ReplaceCommand::execute() {
     recordDeletedText(pos.line, pos.column, deleteLength, deletedText);
 
     // 执行删除
-    textEngine->deleteText(lines, pos.line, pos.column, deleteLength);
+    textEngine()->deleteText(lines(), pos.line, pos.column, deleteLength);
 
     // 再执行插入（替换文本可以为空）
     if (!replaceText.empty()) {
-        textEngine->insert(lines, pos.line, pos.column, replaceText);
+        textEngine()->insert(lines(),pos.line, pos.column, replaceText);
     }
 
     executed = true;
@@ -298,12 +253,12 @@ void ReplaceCommand::undo() {
         if (!replaceText.empty()) {
             // 计算替换文本的长度
             int replaceLength = static_cast<int>(replaceText.length());
-            textEngine->deleteText(lines, pos.line, pos.column, replaceLength);
+            textEngine()->deleteText(lines(), pos.line, pos.column, replaceLength);
         }
 
         // 恢复被删除的文本
         if (!deletedText.empty()) {
-            textEngine->insert(lines, pos.line, pos.column, deletedText);
+            textEngine()->insert(lines(),pos.line, pos.column, deletedText);
         }
 
         executed = false;

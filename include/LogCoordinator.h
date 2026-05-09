@@ -16,7 +16,7 @@ public:
     void startLoggingForFile(const std::string& fileName);
     void stopLoggingForFile(const std::string& fileName);
     bool isLoggingForFile(const std::string& fileName) const;
-    void showLog(const std::string& fileName);
+    void showLog(const std::string& fileName, const std::string& activeFileName = "");
     std::vector<std::string> getLoggedFiles() const;
 
     void setLogEnabled(bool enabled);

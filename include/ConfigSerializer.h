@@ -4,6 +4,8 @@
 #include "Model.h"
 #include <string>
 #include <memory>
+#include <vector>
+#include <map>
 
 class WorkspaceMemento;
 
@@ -18,6 +20,14 @@ public:
 
 protected:
     void handleException(const std::exception& e) const override;
+
+private:
+    void parseConfigLine(const std::string& key, const std::string& value,
+                         std::vector<std::string>& openFiles,
+                         std::string& activeFileName,
+                         std::map<std::string, bool>& fileModifiedStates,
+                         bool& logEnabled,
+                         std::vector<std::string>& loggedFiles);
 };
 
 #endif // CONFIGSERIALIZER_H

@@ -21,6 +21,9 @@ public:
     // 获取目标文件名
     std::string getTargetFileName() const;
 
+    // 获取当前时间戳字符串（用于日志和事件）
+    static std::string currentTimestampString();
+
 private:
     TimePoint timestamp;           // 执行时间戳
     std::string commandContent;    // 命令内容

@@ -47,7 +47,6 @@ std::unique_ptr<Command> CommandController::createCommandFromParsed(const Parsed
 void CommandController::executeCommand(std::unique_ptr<Command> command) {
     try {
         if (auto* wsCommand = dynamic_cast<WorkSpaceCommand*>(command.get())) {
-            wsCommand->setWorkSpace(workspace_);
             wsCommand->execute();
         } else {
             auto activeEditor = workspace_->getActiveEditor();

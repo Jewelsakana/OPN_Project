@@ -6,18 +6,38 @@ XMLEngine::XMLEngine(XmlEditor* editor)
 }
 
 void XMLEngine::validate() const {
-    // XMLEngine的验证逻辑：检查关联的编辑器是否存在
 }
 
 bool XMLEngine::isValid() const {
     return editor_ != nullptr && editor_->getDocument().isLoaded();
 }
 
-pugi::xml_node XMLEngine::findNodeById(const std::string& id) const {
+bool XMLEngine::hasNodeWithId(const std::string& id) const {
     if (!editor_) {
-        throw XmlDocumentException("XMLEngine: No associated XmlEditor");
+        return false;
     }
-    return editor_->findNodeById(id);
+    return editor_->hasNodeWithId(id);
+}
+
+std::string XMLEngine::getNodeName(const std::string& id) const {
+    if (!editor_) {
+        return "";
+    }
+    return editor_->getNodeName(id);
+}
+
+std::string XMLEngine::getNodeValue(const std::string& id) const {
+    if (!editor_) {
+        return "";
+    }
+    return editor_->getNodeValue(id);
+}
+
+std::string XMLEngine::getNodeAttribute(const std::string& id, const std::string& attrName) const {
+    if (!editor_) {
+        return "";
+    }
+    return editor_->getNodeAttribute(id, attrName);
 }
 
 bool XMLEngine::isDocumentLoaded() const {
@@ -25,5 +45,4 @@ bool XMLEngine::isDocumentLoaded() const {
 }
 
 void XMLEngine::handleException(const std::exception& e) const {
-    // XMLEngine特定的异常处理，当前暂为空实现
 }

@@ -2,6 +2,7 @@
 #include "XMLEngine.h"
 #include "XMLCommand.h"
 #include "EditorFactory.h"
+#include "XmlDocumentWrapper.h"
 
 namespace {
     REGISTER_EDITOR(".xml", XmlEditor)
@@ -9,6 +10,7 @@ namespace {
 
 XmlEditor::XmlEditor()
     : modified_(false) {
+    document_ = std::make_unique<XmlDocumentWrapper>();
     xmlEngine_ = std::make_shared<XMLEngine>(this);
 }
 
@@ -53,62 +55,52 @@ XMLEngine* XmlEditor::getXMLEngine() const {
     return xmlEngine_.get();
 }
 
-XmlDocumentWrapper& XmlEditor::getDocument() {
-    return document_;
+IXmlDocument& XmlEditor::getDocument() {
+    return *document_;
 }
 
-const XmlDocumentWrapper& XmlEditor::getDocument() const {
-    return document_;
+const IXmlDocument& XmlEditor::getDocument() const {
+    return *document_;
 }
 
 void XmlEditor::loadFromFile(const std::string& filePath) {
-    document_.loadFromFile(filePath);
-    buildIdMapping();
+    document_->loadFromFile(filePath);
+    document_->collectIds();
     setModified(false);
 }
 
 void XmlEditor::loadFromString(const std::string& xmlContent) {
-    document_.loadFromString(xmlContent);
-    buildIdMapping();
+    document_->loadFromString(xmlContent);
+    document_->collectIds();
     setModified(false);
 }
 
 void XmlEditor::saveToFile(const std::string& filePath) {
-    document_.saveToFile(filePath);
+    document_->saveToFile(filePath);
     setModified(false);
 }
 
-pugi::xml_node XmlEditor::findNodeById(const std::string& id) const {
-    auto it = idToNodeMap_.find(id);
-    if (it != idToNodeMap_.end()) {
-        return it->second;
-    }
-    return pugi::xml_node();  // 返回空节点
+bool XmlEditor::hasNodeWithId(const std::string& id) const {
+    return document_->hasNodeWithId(id);
 }
 
-bool XmlEditor::hasNodeWithId(const std::string& id) const {
-    return idToNodeMap_.find(id) != idToNodeMap_.end();
+std::string XmlEditor::getNodeName(const std::string& id) const {
+    return document_->getNodeName(id);
+}
+
+std::string XmlEditor::getNodeValue(const std::string& id) const {
+    return document_->getNodeValue(id);
+}
+
+std::string XmlEditor::getNodeAttribute(const std::string& id, const std::string& attrName) const {
+    return document_->getNodeAttribute(id, attrName);
 }
 
 std::vector<std::string> XmlEditor::getAllIds() const {
-    std::vector<std::string> ids;
-    ids.reserve(idToNodeMap_.size());
-    for (const auto& pair : idToNodeMap_) {
-        ids.push_back(pair.first);
-    }
-    return ids;
-}
-
-void XmlEditor::rebuildIdMapping() {
-    buildIdMapping();
+    return document_->getAllIds();
 }
 
 void XmlEditor::clear() {
-    document_.clear();
-    idToNodeMap_.clear();
+    document_->clear();
     modified_ = false;
-}
-
-void XmlEditor::buildIdMapping() {
-    document_.collectIds(idToNodeMap_);
 }

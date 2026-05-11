@@ -8,17 +8,24 @@
 ### 1. XML解析库集成
 - **PugiXML库** (`pugixml.hpp`, `pugixml.cpp`, `pugiconfig.hpp`)：引入轻量级C++ XML解析库PugiXML（v1.14），作为底层XML解析引擎。PugiXML以单头文件+源文件形式分发，支持DOM遍历、属性访问和文件读写。
 
-### 2. XmlDocumentWrapper（适配器模式）
-- **XmlDocumentWrapper类** (`XmlDocumentWrapper.h/.cpp`)：使用适配器模式封装PugiXML的`xml_document`，提供统一的XML文档操作接口，便于后续替换底层XML解析库。
-  - `loadFromString()`：从字符串加载XML
-  - `loadFromFile()`：从文件加载XML
-  - `saveToString()`：将XML保存为字符串
-  - `saveToFile()`：将XML保存到文件
-  - `collectIds()`：递归遍历所有元素节点，收集ID到节点的映射，检测重复ID和缺失ID
-  - 底层可通过`getDocument()`访问原始PugiXML文档对象
-- **异常体系**：
+### 2. IXmlDocument（抽象接口）
+- **IXmlDocument接口** (`IXmlDocument.h`)：XML文档的抽象接口，定义统一的XML文档操作协议。不依赖任何具体XML解析库，是适配器模式中的目标接口（Target）。
+  - `loadFromString()` / `loadFromFile()`：加载XML文档
+  - `saveToString()` / `saveToFile()`：保存XML文档
+  - `collectIds()`：收集所有节点ID并验证唯一性
+  - `hasNodeWithId()` / `getNodeName()` / `getNodeValue()` / `getNodeAttribute()`：字符串接口查询节点
+  - `getAllIds()`：获取所有已注册的ID列表
+- **设计意图**：上层模块（XmlEditor、XMLEngine）只依赖此接口。替换XML解析库时只需编写新的`IXmlDocument`实现类，上层代码无需修改。
+
+### 3. XmlDocumentWrapper（适配器实现）
+- **XmlDocumentWrapper类** (`XmlDocumentWrapper.h/.cpp`)：`IXmlDocument`的具体实现，使用适配器模式封装PugiXML的`xml_document`。ID映射（`idToNodeMap_`）作为私有实现细节内部管理，对外只通过`IXmlDocument`的字符串接口访问。
+  - 继承`IXmlDocument`，实现所有纯虚方法
+  - 内部使用`pugi::xml_document`和`unordered_map<string, pugi::xml_node>`
+  - 不对外暴露任何PugiXML类型
+  - 底层可通过`getPugiDocument()`访问原始PugiXML文档对象（仅限内部使用）
+- **异常体系**（定义在`IXmlDocument.h`中）：
   - `XmlDocumentException`：XML文档异常基类
-  - `XmlParseException`：解析错误异常（格式错误、文件不存在等）
+  - `XmlParseException`：解析错误异常
   - `DuplicateIdException`：重复ID异常
   - `MissingIdException`：缺少ID属性异常
 
@@ -68,7 +75,7 @@
 
 | 设计模式 | 应用位置 | 说明 |
 |---------|---------|------|
-| 适配器模式 | XmlDocumentWrapper | 封装PugiXML，便于替换底层XML解析库 |
+| 适配器模式 | IXmlDocument + XmlDocumentWrapper | 抽象接口定义目标协议，具体适配器封装PugiXML |
 | 工厂模式 | EditorFactory | 根据文件后缀创建对应Editor |
 | 注册表模式 | EditorFactory + REGISTER_EDITOR | 自注册机制，支持插件化扩展 |
 | 命令模式 | XMLCommand | XML编辑操作封装为命令对象 |
@@ -118,7 +125,8 @@ mingw32-make clean
 ### 头文件（include/）
 - `pugixml.hpp` — PugiXML库头文件
 - `pugiconfig.hpp` — PugiXML编译配置
-- `XmlDocumentWrapper.h` — XML文档适配器接口
+- `IXmlDocument.h` — XML文档抽象接口（适配器模式目标接口）
+- `XmlDocumentWrapper.h` — PugiXML适配器实现
 - `XMLEngine.h` — XML操作引擎接口
 - `XmlEditor.h` — XML编辑器接口
 - `XMLCommand.h` — XML命令基类接口
@@ -147,10 +155,11 @@ mingw32-make clean
 Editor (接口)
   ├── TextEditor (.txt)
   └── XmlEditor (.xml)
-        ├── XmlDocumentWrapper (适配器) → pugi::xml_document
-        ├── XMLEngine (操作引擎)
+        ├── IXmlDocument (抽象接口) ← 依赖倒置
+        │     └── XmlDocumentWrapper (适配器) → pugi::xml_document
+        ├── XMLEngine (操作引擎，仅依赖字符串接口)
         ├── CommandManager (Undo/Redo管理)
-        └── idToNodeMap_ (ID→节点快速映射)
+        └── (ID映射逻辑封装在XmlDocumentWrapper内部)
 
 EditorFactory (注册表模式)
   └── registry: map<extension, creator>

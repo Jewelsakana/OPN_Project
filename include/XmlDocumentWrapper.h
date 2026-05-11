@@ -1,79 +1,51 @@
 #ifndef XMLDOCUMENTWRAPPER_H
 #define XMLDOCUMENTWRAPPER_H
 
+#include "IXmlDocument.h"
 #include "pugixml.hpp"
 #include <string>
 #include <vector>
 #include <unordered_map>
-#include <stdexcept>
 
-// XML文档异常基类
-class XmlDocumentException : public std::runtime_error {
-public:
-    explicit XmlDocumentException(const std::string& message)
-        : std::runtime_error(message) {}
-};
-
-// 解析错误异常
-class XmlParseException : public XmlDocumentException {
-public:
-    explicit XmlParseException(const std::string& message)
-        : XmlDocumentException("XML parse error: " + message) {}
-};
-
-// 重复ID异常
-class DuplicateIdException : public XmlDocumentException {
-public:
-    explicit DuplicateIdException(const std::string& id)
-        : XmlDocumentException("Duplicate ID found: '" + id + "'") {}
-};
-
-// 缺少ID异常
-class MissingIdException : public XmlDocumentException {
-public:
-    explicit MissingIdException(const std::string& nodeName)
-        : XmlDocumentException("Missing required 'id' attribute on element: '" + nodeName + "'") {}
-};
-
-// XmlDocumentWrapper：适配器模式封装PugiXML的xml_document
-// 提供统一的XML文档操作接口，便于后续替换底层XML解析库
-class XmlDocumentWrapper {
+// XmlDocumentWrapper：适配器模式——将PugiXML的xml_document适配为IXmlDocument接口
+// ID映射作为内部实现细节，不对外暴露pugi类型
+class XmlDocumentWrapper : public IXmlDocument {
 public:
     XmlDocumentWrapper();
-    ~XmlDocumentWrapper() = default;
+    ~XmlDocumentWrapper() override = default;
 
-    // 从字符串加载XML
-    void loadFromString(const std::string& xmlContent);
+    // IXmlDocument接口实现
+    void loadFromString(const std::string& xmlContent) override;
+    void loadFromFile(const std::string& filePath) override;
+    std::string saveToString() const override;
+    void saveToFile(const std::string& filePath) const override;
+    bool isLoaded() const override;
+    void clear() override;
 
-    // 从文件加载XML
-    void loadFromFile(const std::string& filePath);
+    // ID映射（内部管理，验证唯一性）
+    void collectIds() override;
+    bool hasNodeWithId(const std::string& id) const override;
+    std::string getNodeName(const std::string& id) const override;
+    std::string getNodeValue(const std::string& id) const override;
+    std::string getNodeAttribute(const std::string& id, const std::string& attrName) const override;
+    std::vector<std::string> getAllIds() const override;
 
-    // 将XML保存为字符串
-    std::string saveToString() const;
-
-    // 将XML保存到文件
-    void saveToFile(const std::string& filePath) const;
+    // 获取底层文档对象（仅限内部使用，谨慎调用）
+    pugi::xml_document& getPugiDocument();
+    const pugi::xml_document& getPugiDocument() const;
 
     // 获取根节点
     pugi::xml_node root() const;
 
-    // 获取底层文档对象（用于高级操作）
-    pugi::xml_document& getDocument();
-    const pugi::xml_document& getDocument() const;
-
-    // 遍历所有元素节点，收集ID到节点的映射
-    // 返回 map<id, node>，如发现重复ID则抛出DuplicateIdException
-    void collectIds(std::unordered_map<std::string, pugi::xml_node>& idMap) const;
-
-    // 检查是否已加载文档
-    bool isLoaded() const;
-
-    // 清空文档
-    void clear();
-
 private:
+    // 递归遍历收集ID
+    void traverseForIds(pugi::xml_node node);
+
     pugi::xml_document doc_;
     bool loaded_;
+
+    // ID到节点的快速映射（内部实现细节，不对外暴露）
+    std::unordered_map<std::string, pugi::xml_node> idToNodeMap_;
 };
 
 #endif // XMLDOCUMENTWRAPPER_H

@@ -2,6 +2,7 @@
 #include "Editor.h"
 #include "XmlEditor.h"
 #include "XmlDocumentWrapper.h"
+#include "IXmlDocument.h"
 #include "XMLEngine.h"
 #include "XMLCommand.h"
 #include <iostream>
@@ -66,49 +67,61 @@ void test_xml_document_wrapper_load_save() {
     <child id="child2">World</child>
 </root>)";
 
-    // 测试从字符串加载
-    XmlDocumentWrapper doc;
-    doc.loadFromString(xmlContent);
-    assert(doc.isLoaded());
-    printTestResult("Load XML from string", true);
+    // 测试通过IXmlDocument接口加载
+    std::unique_ptr<IXmlDocument> doc = std::make_unique<XmlDocumentWrapper>();
+    doc->loadFromString(xmlContent);
+    assert(doc->isLoaded());
+    printTestResult("Load XML from string via IXmlDocument interface", true);
 
-    // 测试获取根节点
-    pugi::xml_node root = doc.root();
-    assert(root.type() == pugi::node_element);
-    assert(std::string(root.name()) == "root");
-    printTestResult("Get root element", true);
+    // 测试ID收集
+    doc->collectIds();
+    assert(doc->hasNodeWithId("root1"));
+    assert(doc->hasNodeWithId("child1"));
+    assert(doc->hasNodeWithId("child2"));
+    printTestResult("collectIds and hasNodeWithId via interface", true);
+
+    // 测试获取节点名称
+    assert(doc->getNodeName("root1") == "root");
+    assert(doc->getNodeName("child1") == "child");
+    printTestResult("getNodeName via interface", true);
+
+    // 测试获取节点值
+    assert(doc->getNodeValue("child1") == "Hello");
+    assert(doc->getNodeValue("child2") == "World");
+    printTestResult("getNodeValue via interface", true);
 
     // 测试保存为字符串
-    std::string saved = doc.saveToString();
+    std::string saved = doc->saveToString();
     assert(!saved.empty());
-    printTestResult("Save to string", true);
+    printTestResult("Save to string via interface", true);
 
     // 测试保存到文件并重新加载
     const std::string testFile = "test_xml_temp.xml";
-    doc.saveToFile(testFile);
+    doc->saveToFile(testFile);
 
-    XmlDocumentWrapper doc2;
-    doc2.loadFromFile(testFile);
-    assert(doc2.isLoaded());
-    assert(std::string(doc2.root().name()) == "root");
-    printTestResult("Save to file and reload", true);
+    auto doc2 = std::make_unique<XmlDocumentWrapper>();
+    doc2->loadFromFile(testFile);
+    assert(doc2->isLoaded());
+    doc2->collectIds();
+    assert(doc2->getNodeName("root1") == "root");
+    printTestResult("Save to file and reload via interface", true);
 
     // 清理测试文件
     std::remove(testFile.c_str());
 
     // 测试解析错误异常
     try {
-        XmlDocumentWrapper badDoc;
-        badDoc.loadFromString("<invalid>");
-        assert(!"Should have thrown"); // 不应该执行到这里
+        auto badDoc = std::make_unique<XmlDocumentWrapper>();
+        badDoc->loadFromString("<invalid>");
+        assert(!"Should have thrown");
     } catch (const XmlParseException& e) {
         printTestResult("Parse error throws XmlParseException", true);
     }
 
     // 测试加载不存在的文件
     try {
-        XmlDocumentWrapper badDoc;
-        badDoc.loadFromFile("nonexistent_file.xml");
+        auto badDoc = std::make_unique<XmlDocumentWrapper>();
+        badDoc->loadFromFile("nonexistent_file.xml");
         assert(!"Should have thrown");
     } catch (const XmlParseException& e) {
         printTestResult("Loading nonexistent file throws XmlParseException", true);
@@ -135,38 +148,30 @@ void test_xml_id_mapping() {
     </book>
 </library>)";
 
-    // 测试ID收集
-    XmlDocumentWrapper doc;
-    doc.loadFromString(xmlContent);
-
-    std::unordered_map<std::string, pugi::xml_node> idMap;
-    doc.collectIds(idMap);
+    auto doc = std::make_unique<XmlDocumentWrapper>();
+    doc->loadFromString(xmlContent);
+    doc->collectIds();
 
     // 验证所有ID都存在
-    assert(idMap.find("lib1") != idMap.end());
-    assert(idMap.find("book1") != idMap.end());
-    assert(idMap.find("title1") != idMap.end());
-    assert(idMap.find("author1") != idMap.end());
-    assert(idMap.find("book2") != idMap.end());
-    assert(idMap.find("title2") != idMap.end());
-    assert(idMap.find("author2") != idMap.end());
-    printTestResult("All 7 IDs collected correctly", (idMap.size() == 7));
+    auto allIds = doc->getAllIds();
+    assert(allIds.size() == 7);
+    printTestResult("All 7 IDs collected correctly", true);
 
     // 验证节点名称正确
-    assert(std::string(idMap["lib1"].name()) == "library");
+    assert(doc->getNodeName("lib1") == "library");
     printTestResult("ID 'lib1' maps to 'library' element", true);
 
-    assert(std::string(idMap["book1"].name()) == "book");
+    assert(doc->getNodeName("book1") == "book");
     printTestResult("ID 'book1' maps to 'book' element", true);
 
-    assert(std::string(idMap["title1"].name()) == "title");
-    assert(std::string(idMap["author1"].name()) == "author");
+    assert(doc->getNodeName("title1") == "title");
+    assert(doc->getNodeName("author1") == "author");
     printTestResult("Child element names are correct", true);
 
     // 验证节点内容
-    assert(std::string(idMap["title1"].child_value()) == "The C++ Programming Language");
-    assert(std::string(idMap["author2"].child_value()) == "Robert C. Martin");
-    printTestResult("Node content (child_value) is correct", true);
+    assert(doc->getNodeValue("title1") == "The C++ Programming Language");
+    assert(doc->getNodeValue("author2") == "Robert C. Martin");
+    printTestResult("Node content (getNodeValue) is correct", true);
 
     std::cout << "  All ID mapping tests passed!" << std::endl << std::endl;
 }
@@ -184,12 +189,11 @@ void test_duplicate_id_detection() {
     <item id="dup1">Second</item>
 </root>)";
 
-    XmlDocumentWrapper doc;
-    doc.loadFromString(xmlWithDuplicate);
+    auto doc = std::make_unique<XmlDocumentWrapper>();
+    doc->loadFromString(xmlWithDuplicate);
 
-    std::unordered_map<std::string, pugi::xml_node> idMap;
     try {
-        doc.collectIds(idMap);
+        doc->collectIds();
         assert(!"Should have thrown DuplicateIdException");
     } catch (const DuplicateIdException& e) {
         printTestResult("Duplicate ID 'dup1' throws DuplicateIdException", true);
@@ -201,11 +205,11 @@ void test_duplicate_id_detection() {
     <item>No ID here</item>
 </root>)";
 
-    XmlDocumentWrapper doc2;
-    doc2.loadFromString(xmlMissingId);
+    auto doc2 = std::make_unique<XmlDocumentWrapper>();
+    doc2->loadFromString(xmlMissingId);
 
     try {
-        doc2.collectIds(idMap);
+        doc2->collectIds();
         assert(!"Should have thrown MissingIdException");
     } catch (const MissingIdException& e) {
         printTestResult("Missing ID throws MissingIdException", true);
@@ -262,7 +266,7 @@ void test_xml_editor_modified_state() {
 }
 
 // ============================================================
-// 测试6：XmlEditor ID映射与查找
+// 测试6：XmlEditor ID查找
 // ============================================================
 void test_xml_editor_id_lookup() {
     std::cout << "Test 6: XmlEditor ID lookup..." << std::endl;
@@ -281,22 +285,22 @@ void test_xml_editor_id_lookup() {
     XmlEditor editor;
     editor.loadFromString(xmlContent);
 
-    // 查找存在的节点
-    pugi::xml_node node = editor.findNodeById("file1");
-    assert(!node.empty());
-    assert(std::string(node.name()) == "file");
-    assert(std::string(node.child_value()) == "main.cpp");
-    printTestResult("Find existing node by ID 'file1'", true);
+    // 查找存在的节点——通过名称和值
+    assert(editor.hasNodeWithId("file1"));
+    assert(editor.getNodeName("file1") == "file");
+    assert(editor.getNodeValue("file1") == "main.cpp");
+    printTestResult("Find existing node by ID 'file1' via string API", true);
 
-    node = editor.findNodeById("mod2");
-    assert(!node.empty());
-    assert(std::string(node.name()) == "module");
-    printTestResult("Find existing node by ID 'mod2'", true);
+    assert(editor.hasNodeWithId("mod2"));
+    assert(editor.getNodeName("mod2") == "module");
+    printTestResult("Find existing node by ID 'mod2' via string API", true);
 
     // 查找不存在的节点
-    node = editor.findNodeById("nonexistent");
-    assert(node.empty());
-    printTestResult("Find non-existent ID returns empty node", true);
+    bool hasGhost = editor.hasNodeWithId("nonexistent");
+    assert(!hasGhost);
+    assert(editor.getNodeName("nonexistent") == "");
+    assert(editor.getNodeValue("nonexistent") == "");
+    printTestResult("Non-existent ID returns empty strings", true);
 
     // 检查ID是否存在
     assert(editor.hasNodeWithId("proj1"));
@@ -340,16 +344,15 @@ void test_xml_engine_basic() {
     printTestResult("isDocumentLoaded returns true", true);
 
     // 通过引擎查找节点
-    pugi::xml_node node = engine->findNodeById("set1");
-    assert(!node.empty());
-    assert(std::string(node.name()) == "setting");
-    assert(std::string(node.attribute("key").value()) == "theme");
-    printTestResult("XMLEngine findNodeById works", true);
+    assert(engine->hasNodeWithId("set1"));
+    assert(engine->getNodeName("set1") == "setting");
+    assert(engine->getNodeAttribute("set1", "key") == "theme");
+    printTestResult("XMLEngine getNodeAttribute works", true);
 
     // 查找不存在的节点
-    node = engine->findNodeById("nonexistent");
-    assert(node.empty());
-    printTestResult("XMLEngine findNodeById for missing ID returns empty node", true);
+    assert(!engine->hasNodeWithId("nonexistent"));
+    assert(engine->getNodeName("nonexistent") == "");
+    printTestResult("XMLEngine missing ID returns empty string", true);
 
     std::cout << "  All XMLEngine tests passed!" << std::endl << std::endl;
 }
@@ -376,14 +379,11 @@ void test_xml_command_structure() {
 
         void execute() override {
             executed = true;
-            // 验证可以访问引擎和编辑器
             auto* engine = getEngine();
-            auto* editor = getEditor();
-            if (engine && editor) {
-                engineOk = true;
-                auto node = engine->findNodeById("item1");
-                if (!node.empty()) {
+            if (engine && engine->hasNodeWithId("item1")) {
+                if (engine->getNodeValue("item1") == "Content") {
                     executed = true;
+                    engineOk = true;
                 }
             }
         }
@@ -400,12 +400,12 @@ void test_xml_command_structure() {
     bool engineOk = false;
     auto cmd = std::make_unique<TestXMLCommand>(&editor, flag, engineOk);
 
-    // 执行命令
+    // 执行命令——通过引擎的字符串API访问
     cmd->execute();
     assert(flag);
     assert(engineOk);
     printTestResult("XMLCommand execute accesses engine and finds node", true);
-    printTestResult("getEngine() and getEditor() return valid pointers", true);
+    printTestResult("getEngine() returns valid pointer with working API", true);
 
     // 撤销命令
     cmd->undo();
@@ -450,23 +450,21 @@ void test_complex_xml_mapping() {
     assert(allIds.size() == 13);
     printTestResult("13 unique IDs in complex XML", true);
 
-    // 验证层级结构
-    pugi::xml_node g1 = editor.findNodeById("g1");
-    assert(!g1.empty());
-    assert(std::string(g1.attribute("name").value()) == "Milky Way");
-    printTestResult("Galaxy g1 has correct attribute", true);
+    // 验证层级结构与属性（通过字符串接口）
+    assert(editor.hasNodeWithId("g1"));
+    assert(editor.getNodeName("g1") == "galaxy");
+    assert(editor.getNodeAttribute("g1", "name") == "Milky Way");
+    printTestResult("Galaxy g1: correct name and attribute via string API", true);
 
-    pugi::xml_node p3 = editor.findNodeById("p3");
-    assert(!g1.empty());
-    assert(std::string(p3.attribute("name").value()) == "Earth");
-    printTestResult("Planet p3 is Earth", true);
+    assert(editor.hasNodeWithId("p3"));
+    assert(editor.getNodeName("p3") == "planet");
+    assert(editor.getNodeAttribute("p3", "name") == "Earth");
+    printTestResult("Planet p3 is Earth via string API", true);
 
-    // pugi::xml_node存储在map中仍然有效
-    pugi::xml_node p7 = editor.findNodeById("p7");
-    assert(!p7.empty());
-    assert(std::string(p7.name()) == "planet");
-    assert(std::string(p7.attribute("name").value()) == "Andro-2");
-    printTestResult("Node p7 has correct name and attribute", true);
+    assert(editor.hasNodeWithId("p7"));
+    assert(editor.getNodeName("p7") == "planet");
+    assert(editor.getNodeAttribute("p7", "name") == "Andro-2");
+    printTestResult("Node p7: correct name and attribute via string API", true);
 
     std::cout << "  All complex XML mapping tests passed!" << std::endl << std::endl;
 }

@@ -61,6 +61,21 @@ public:
     virtual std::string getNodeValue(const std::string& id) const = 0;
     virtual std::string getNodeAttribute(const std::string& id, const std::string& attrName) const = 0;
     virtual std::vector<std::string> getAllIds() const = 0;
+
+    // 元素操作方法（由命令层调用）
+    virtual void insertBefore(const std::string& tagName, const std::string& newId,
+                              const std::string& targetId, const std::string& text) = 0;
+    virtual void appendChild(const std::string& tagName, const std::string& newId,
+                             const std::string& parentId, const std::string& text) = 0;
+    virtual void editId(const std::string& oldId, const std::string& newId) = 0;
+    virtual void editText(const std::string& elementId, const std::string& text) = 0;
+    virtual void deleteElement(const std::string& elementId) = 0;
+    virtual bool isRootNode(const std::string& id) const = 0;
+
+    // 供 undo 使用：获取元素的序列化快照
+    virtual std::string getNodeXml(const std::string& id) const = 0;
+    virtual std::string getParentId(const std::string& id) const = 0;
+    virtual int getChildIndex(const std::string& id) const = 0;
 };
 
 #endif // IXMLDOCUMENT_H

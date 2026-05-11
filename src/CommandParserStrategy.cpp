@@ -91,8 +91,14 @@ ParsedCommand InsertParser::parse(const std::string&, const std::vector<std::str
 std::string DeleteParser::getCommandName() const { return "delete"; }
 
 ParsedCommand DeleteParser::parse(const std::string&, const std::vector<std::string>& tokens) {
+    // 区分 XML 删除（delete <elementId>）和文本删除（delete <line:col> <len>）
+    if (tokens.size() == 2 && tokens[1].find(':') == std::string::npos) {
+        auto parsed = makeEditor(EditorCommandType::XmlDelete);
+        parsed.asEditor()->targetId = tokens[1];
+        return parsed;
+    }
     if (tokens.size() < 3) {
-        throw CommandFormatException("delete", "delete <line:col> <len>");
+        throw CommandFormatException("delete", "delete <line:col> <len>  or  delete <elementId>");
     }
     auto [line, col] = parsePosition(tokens[1]);
     int length = std::stoi(tokens[2]);
@@ -273,3 +279,64 @@ ParsedCommand LogshowParser::parse(const std::string&, const std::vector<std::st
     }
     return parsed;
 }
+
+// === XML 命令策略实现 ===
+
+std::string InsertBeforeParser::getCommandName() const { return "insert-before"; }
+
+ParsedCommand InsertBeforeParser::parse(const std::string&, const std::vector<std::string>& tokens) {
+    if (tokens.size() < 4) {
+        throw CommandFormatException("insert-before", "insert-before <tagName> <newId> <targetId> [\"text\"]");
+    }
+    auto parsed = makeEditor(EditorCommandType::InsertBefore);
+    parsed.asEditor()->tagName = tokens[1];
+    parsed.asEditor()->newId = tokens[2];
+    parsed.asEditor()->targetId = tokens[3];
+    if (tokens.size() > 4) {
+        parsed.asEditor()->text = parseQuotedTextHelper(tokens[4]);
+    }
+    return parsed;
+}
+
+std::string AppendChildParser::getCommandName() const { return "append-child"; }
+
+ParsedCommand AppendChildParser::parse(const std::string&, const std::vector<std::string>& tokens) {
+    if (tokens.size() < 4) {
+        throw CommandFormatException("append-child", "append-child <tagName> <newId> <parentId> [\"text\"]");
+    }
+    auto parsed = makeEditor(EditorCommandType::AppendChild);
+    parsed.asEditor()->tagName = tokens[1];
+    parsed.asEditor()->newId = tokens[2];
+    parsed.asEditor()->targetId = tokens[3];
+    if (tokens.size() > 4) {
+        parsed.asEditor()->text = parseQuotedTextHelper(tokens[4]);
+    }
+    return parsed;
+}
+
+std::string EditIdParser::getCommandName() const { return "edit-id"; }
+
+ParsedCommand EditIdParser::parse(const std::string&, const std::vector<std::string>& tokens) {
+    if (tokens.size() < 3) {
+        throw CommandFormatException("edit-id", "edit-id <oldId> <newId>");
+    }
+    auto parsed = makeEditor(EditorCommandType::EditId);
+    parsed.asEditor()->targetId = tokens[1];  // oldId
+    parsed.asEditor()->newId = tokens[2];      // newId
+    return parsed;
+}
+
+std::string EditTextParser::getCommandName() const { return "edit-text"; }
+
+ParsedCommand EditTextParser::parse(const std::string&, const std::vector<std::string>& tokens) {
+    if (tokens.size() < 2) {
+        throw CommandFormatException("edit-text", "edit-text <elementId> [\"text\"]");
+    }
+    auto parsed = makeEditor(EditorCommandType::EditText_);
+    parsed.asEditor()->targetId = tokens[1];  // elementId
+    if (tokens.size() > 2) {
+        parsed.asEditor()->text = parseQuotedTextHelper(tokens[2]);
+    }
+    return parsed;
+}
+

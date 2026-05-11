@@ -1,5 +1,4 @@
 #include "XmlEditor.h"
-#include "XMLEngine.h"
 #include "XMLCommand.h"
 #include "EditorFactory.h"
 #include "XmlDocumentWrapper.h"
@@ -11,7 +10,6 @@ namespace {
 XmlEditor::XmlEditor()
     : modified_(false) {
     document_ = std::make_unique<XmlDocumentWrapper>();
-    xmlEngine_ = std::make_shared<XMLEngine>(this);
 }
 
 XmlEditor::~XmlEditor() {
@@ -49,10 +47,6 @@ bool XmlEditor::isModified() const {
 
 void XmlEditor::setModified(bool modified) {
     this->modified_ = modified;
-}
-
-XMLEngine* XmlEditor::getXMLEngine() const {
-    return xmlEngine_.get();
 }
 
 IXmlDocument& XmlEditor::getDocument() {

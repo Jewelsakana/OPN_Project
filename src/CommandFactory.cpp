@@ -1,5 +1,6 @@
 #include "CommandFactory.h"
 #include "TextEditor.h"
+#include "XmlEditor.h"
 #include "WorkSpace.h"
 #include "WorkSpaceCommand.h"
 #include "OutputService.h"
@@ -28,6 +29,19 @@ void CommandFactory::registerWorkSpaceCreator(WorkSpaceCommandType type, WorkSpa
     workSpaceRegistry()[type] = std::move(creator);
 }
 
+static bool isXmlCommandType(EditorCommandType type) {
+    switch (type) {
+        case EditorCommandType::InsertBefore:
+        case EditorCommandType::AppendChild:
+        case EditorCommandType::EditId:
+        case EditorCommandType::EditText_:
+        case EditorCommandType::XmlDelete:
+            return true;
+        default:
+            return false;
+    }
+}
+
 std::unique_ptr<Command> CommandFactory::createFromParsed(
     const ParsedCommand& parsed,
     WorkSpace* workspace,
@@ -42,6 +56,25 @@ std::unique_ptr<Command> CommandFactory::createFromParsed(
     }
 
     if (auto* ed = parsed.asEditor()) {
+        if (isXmlCommandType(ed->editorType)) {
+            static std::vector<std::string> dummyLines;  // XML命令不需要文本行
+            auto activeEditor = workspace->getActiveEditor();
+            if (!activeEditor) {
+                throw std::runtime_error("No active editor to execute XML command");
+            }
+            auto xmlEditor = dynamic_cast<XmlEditor*>(activeEditor.get());
+            if (!xmlEditor) {
+                throw std::runtime_error("Active editor is not an XML editor");
+            }
+            EditorCommandContext ctx{
+                dummyLines,
+                nullptr,
+                &workspace->getOutputService(),
+                xmlEditor
+            };
+            return createEditorCommand(*ed, ctx);
+        }
+
         if (!activeTextEditor) {
             throw std::runtime_error("No active editor to execute editor command");
         }

@@ -158,4 +158,34 @@ public:
                         const std::vector<std::string>& tokens) override;
 };
 
+// === XML 命令策略 ===
+
+class InsertBeforeParser : public ICommandParserStrategy {
+public:
+    std::string getCommandName() const override;
+    ParsedCommand parse(const std::string& commandName,
+                        const std::vector<std::string>& tokens) override;
+};
+
+class AppendChildParser : public ICommandParserStrategy {
+public:
+    std::string getCommandName() const override;
+    ParsedCommand parse(const std::string& commandName,
+                        const std::vector<std::string>& tokens) override;
+};
+
+class EditIdParser : public ICommandParserStrategy {
+public:
+    std::string getCommandName() const override;
+    ParsedCommand parse(const std::string& commandName,
+                        const std::vector<std::string>& tokens) override;
+};
+
+class EditTextParser : public ICommandParserStrategy {
+public:
+    std::string getCommandName() const override;
+    ParsedCommand parse(const std::string& commandName,
+                        const std::vector<std::string>& tokens) override;
+};
+
 #endif // COMMANDPARSERSTRATEGY_H

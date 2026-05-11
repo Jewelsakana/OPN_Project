@@ -54,7 +54,13 @@ enum class EditorCommandType {
     Insert,
     Delete,
     Replace,
-    Show
+    Show,
+    // XML 编辑命令
+    InsertBefore,
+    AppendChild,
+    EditId,
+    EditText_,
+    XmlDelete
 };
 
 // 工作区命令子类型枚举
@@ -83,6 +89,10 @@ struct EditorParsedCommand {
     std::optional<std::string> text;
     std::optional<int> startLine;
     std::optional<int> endLine;
+    // XML 命令字段
+    std::optional<std::string> tagName;
+    std::optional<std::string> newId;
+    std::optional<std::string> targetId;
 };
 
 // 工作区命令解析结果

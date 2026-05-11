@@ -31,6 +31,11 @@ void CommandParser::registerStrategies() {
     strategies_.push_back(std::make_unique<LogonParser>());
     strategies_.push_back(std::make_unique<LogoffParser>());
     strategies_.push_back(std::make_unique<LogshowParser>());
+    // XML 命令解析器
+    strategies_.push_back(std::make_unique<InsertBeforeParser>());
+    strategies_.push_back(std::make_unique<AppendChildParser>());
+    strategies_.push_back(std::make_unique<EditIdParser>());
+    strategies_.push_back(std::make_unique<EditTextParser>());
 }
 
 ParsedCommand CommandParser::parse(const std::string& commandString) {

@@ -3,7 +3,6 @@
 #include "XmlEditor.h"
 #include "XmlDocumentWrapper.h"
 #include "IXmlDocument.h"
-#include "XMLEngine.h"
 #include "XMLCommand.h"
 #include <iostream>
 #include <cassert>
@@ -318,10 +317,10 @@ void test_xml_editor_id_lookup() {
 }
 
 // ============================================================
-// 测试7：XMLEngine基本功能
+// 测试7：IXmlDocument基本功能
 // ============================================================
-void test_xml_engine_basic() {
-    std::cout << "Test 7: XMLEngine basic functionality..." << std::endl;
+void test_xml_document_basic() {
+    std::cout << "Test 7: IXmlDocument basic functionality..." << std::endl;
 
     const std::string xmlContent = R"(<?xml version="1.0" encoding="UTF-8"?>
 <config id="cfg1">
@@ -332,29 +331,22 @@ void test_xml_engine_basic() {
     XmlEditor editor;
     editor.loadFromString(xmlContent);
 
-    XMLEngine* engine = editor.getXMLEngine();
-    assert(engine != nullptr);
-    printTestResult("getXMLEngine returns non-null", true);
+    auto& doc = editor.getDocument();
+    assert(doc.isLoaded());
+    printTestResult("document is loaded", true);
 
-    // 验证引擎状态
-    assert(engine->isValid());
-    printTestResult("XMLEngine is valid after document load", true);
-
-    assert(engine->isDocumentLoaded());
-    printTestResult("isDocumentLoaded returns true", true);
-
-    // 通过引擎查找节点
-    assert(engine->hasNodeWithId("set1"));
-    assert(engine->getNodeName("set1") == "setting");
-    assert(engine->getNodeAttribute("set1", "key") == "theme");
-    printTestResult("XMLEngine getNodeAttribute works", true);
+    // 通过文档接口查找节点
+    assert(doc.hasNodeWithId("set1"));
+    assert(doc.getNodeName("set1") == "setting");
+    assert(doc.getNodeAttribute("set1", "key") == "theme");
+    printTestResult("IXmlDocument getNodeAttribute works", true);
 
     // 查找不存在的节点
-    assert(!engine->hasNodeWithId("nonexistent"));
-    assert(engine->getNodeName("nonexistent") == "");
-    printTestResult("XMLEngine missing ID returns empty string", true);
+    assert(!doc.hasNodeWithId("nonexistent"));
+    assert(doc.getNodeName("nonexistent") == "");
+    printTestResult("IXmlDocument missing ID returns empty string", true);
 
-    std::cout << "  All XMLEngine tests passed!" << std::endl << std::endl;
+    std::cout << "  All IXmlDocument tests passed!" << std::endl << std::endl;
 }
 
 // ============================================================
@@ -374,16 +366,14 @@ void test_xml_command_structure() {
     // 创建一个具体的XMLCommand测试子类
     class TestXMLCommand : public XMLCommand {
     public:
-        TestXMLCommand(XmlEditor* editor, bool& executedFlag, bool& engineOkFlag)
-            : XMLCommand(editor), executed(executedFlag), engineOk(engineOkFlag) {}
+        TestXMLCommand(IXmlDocument* doc, bool& executedFlag, bool& docOkFlag)
+            : XMLCommand(doc), executed(executedFlag), docOk(docOkFlag) {}
 
         void execute() override {
             executed = true;
-            auto* engine = getEngine();
-            if (engine && engine->hasNodeWithId("item1")) {
-                if (engine->getNodeValue("item1") == "Content") {
-                    executed = true;
-                    engineOk = true;
+            if (doc_ && doc_->hasNodeWithId("item1")) {
+                if (doc_->getNodeValue("item1") == "Content") {
+                    docOk = true;
                 }
             }
         }
@@ -393,21 +383,19 @@ void test_xml_command_structure() {
         }
 
         bool& executed;
-        bool& engineOk;
+        bool& docOk;
     };
 
     bool flag = false;
-    bool engineOk = false;
-    auto cmd = std::make_unique<TestXMLCommand>(&editor, flag, engineOk);
+    bool docOk = false;
+    auto cmd = std::make_unique<TestXMLCommand>(&editor.getDocument(), flag, docOk);
 
-    // 执行命令——通过引擎的字符串API访问
     cmd->execute();
     assert(flag);
-    assert(engineOk);
-    printTestResult("XMLCommand execute accesses engine and finds node", true);
-    printTestResult("getEngine() returns valid pointer with working API", true);
+    assert(docOk);
+    printTestResult("XMLCommand execute accesses document and finds node", true);
+    printTestResult("doc_ pointer provides working IXmlDocument API", true);
 
-    // 撤销命令
     cmd->undo();
     assert(!flag);
     printTestResult("XMLCommand undo works", true);
@@ -523,7 +511,7 @@ int main() {
         test_duplicate_id_detection();
         test_xml_editor_modified_state();
         test_xml_editor_id_lookup();
-        test_xml_engine_basic();
+        test_xml_document_basic();
         test_xml_command_structure();
         test_complex_xml_mapping();
         test_editor_factory_registration();

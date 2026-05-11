@@ -8,9 +8,6 @@
 #include <string>
 #include <vector>
 
-// 前向声明
-class XMLEngine;
-
 // XmlEditor：XML文件编辑器，派生自Editor
 // 通过IXmlDocument接口依赖XML文档，不耦合具体解析库
 class XmlEditor : public Editor {
@@ -28,9 +25,6 @@ public:
     // 修改状态管理
     bool isModified() const;
     void setModified(bool modified);
-
-    // 获取关联的XMLEngine
-    XMLEngine* getXMLEngine() const;
 
     // 获取文档接口（返回抽象接口引用，不暴露具体实现）
     IXmlDocument& getDocument();
@@ -57,7 +51,6 @@ public:
 
 private:
     std::unique_ptr<IXmlDocument> document_;
-    std::shared_ptr<XMLEngine> xmlEngine_;
     CommandManager commandManager_;
     bool modified_;
 };

@@ -30,6 +30,21 @@ public:
     std::string getNodeAttribute(const std::string& id, const std::string& attrName) const override;
     std::vector<std::string> getAllIds() const override;
 
+    // 元素操作方法
+    void insertBefore(const std::string& tagName, const std::string& newId,
+                      const std::string& targetId, const std::string& text) override;
+    void appendChild(const std::string& tagName, const std::string& newId,
+                     const std::string& parentId, const std::string& text) override;
+    void editId(const std::string& oldId, const std::string& newId) override;
+    void editText(const std::string& elementId, const std::string& text) override;
+    void deleteElement(const std::string& elementId) override;
+    bool isRootNode(const std::string& id) const override;
+
+    // undo 辅助
+    std::string getNodeXml(const std::string& id) const override;
+    std::string getParentId(const std::string& id) const override;
+    int getChildIndex(const std::string& id) const override;
+
     // 获取底层文档对象（仅限内部使用，谨慎调用）
     pugi::xml_document& getPugiDocument();
     const pugi::xml_document& getPugiDocument() const;
@@ -40,6 +55,9 @@ public:
 private:
     // 递归遍历收集ID
     void traverseForIds(pugi::xml_node node);
+
+    // 重建ID映射（在增删改操作后调用）
+    void rebuildIdMap();
 
     pugi::xml_document doc_;
     bool loaded_;

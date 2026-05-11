@@ -12,12 +12,14 @@ class TextEngine;
 class OutputService;
 class WorkSpace;
 class TextEditor;
+class XmlEditor;
 
 // 编辑器命令工厂上下文
 struct EditorCommandContext {
     std::vector<std::string>& lines;
     TextEngine* textEngine;
     OutputService* outputService;
+    XmlEditor* xmlEditor = nullptr;  // 非持有，仅XML命令使用
 };
 
 // 工厂函数类型
@@ -128,6 +130,17 @@ private:
         CommandFactory::registerWorkSpaceCreator(ENUM, \
             [](const WorkSpaceParsedCommand& ws) -> std::unique_ptr<Command> { \
                 if (ws.fileName) return std::make_unique<CLASS>(*ws.fileName, ws.withLog.value_or(false)); \
+                return nullptr; \
+            }); \
+        return true; \
+    }();
+
+// XML 编辑器命令注册宏
+#define REGISTER_XML_CMD(ENUM, CLASS, GUARD, ...) \
+    static bool _reg_xml_##CLASS = []() { \
+        CommandFactory::registerEditorCreator(ENUM, \
+            [](const EditorParsedCommand& ed, const EditorCommandContext& ctx) -> std::unique_ptr<Command> { \
+                if ((GUARD) && ctx.xmlEditor) return std::make_unique<CLASS>(&ctx.xmlEditor->getDocument(), ##__VA_ARGS__); \
                 return nullptr; \
             }); \
         return true; \

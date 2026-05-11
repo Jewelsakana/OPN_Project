@@ -60,7 +60,8 @@ enum class EditorCommandType {
     AppendChild,
     EditId,
     EditText_,
-    XmlDelete
+    XmlDelete,
+    XmlTree
 };
 
 // 工作区命令子类型枚举

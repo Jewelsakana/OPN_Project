@@ -46,6 +46,9 @@ public:
     std::string getNodeAttribute(const std::string& id, const std::string& attrName) const;
     std::vector<std::string> getAllIds() const;
 
+    // 检查是否支持某个命令类型
+    bool supportsCommand(EditorCommandType type) const override;
+
     // 清空编辑器内容
     void clear();
 

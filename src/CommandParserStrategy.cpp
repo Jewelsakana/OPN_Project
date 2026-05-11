@@ -340,3 +340,13 @@ ParsedCommand EditTextParser::parse(const std::string&, const std::vector<std::s
     return parsed;
 }
 
+std::string XmlTreeParser::getCommandName() const { return "xml-tree"; }
+
+ParsedCommand XmlTreeParser::parse(const std::string&, const std::vector<std::string>& tokens) {
+    auto parsed = makeEditor(EditorCommandType::XmlTree);
+    if (tokens.size() > 1) {
+        parsed.asEditor()->text = tokens[1];  // optional file parameter
+    }
+    return parsed;
+}
+

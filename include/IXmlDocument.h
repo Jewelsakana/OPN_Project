@@ -3,6 +3,7 @@
 
 #include <string>
 #include <vector>
+#include <utility>
 #include <stdexcept>
 
 // XML文档异常基类
@@ -76,6 +77,11 @@ public:
     virtual std::string getNodeXml(const std::string& id) const = 0;
     virtual std::string getParentId(const std::string& id) const = 0;
     virtual int getChildIndex(const std::string& id) const = 0;
+
+    // 供 xml-tree 遍历使用
+    virtual std::string getRootId() const = 0;
+    virtual std::vector<std::string> getChildIds(const std::string& parentId) const = 0;
+    virtual std::vector<std::pair<std::string, std::string>> getNodeAttributes(const std::string& id) const = 0;
 };
 
 #endif // IXMLDOCUMENT_H

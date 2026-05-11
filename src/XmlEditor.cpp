@@ -94,6 +94,20 @@ std::vector<std::string> XmlEditor::getAllIds() const {
     return document_->getAllIds();
 }
 
+bool XmlEditor::supportsCommand(EditorCommandType type) const {
+    switch (type) {
+        case EditorCommandType::InsertBefore:
+        case EditorCommandType::AppendChild:
+        case EditorCommandType::EditId:
+        case EditorCommandType::EditText_:
+        case EditorCommandType::XmlDelete:
+        case EditorCommandType::XmlTree:
+            return true;
+        default:
+            return false;
+    }
+}
+
 void XmlEditor::clear() {
     document_->clear();
     modified_ = false;

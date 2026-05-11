@@ -52,6 +52,9 @@ public:
     // 检查是否可以Redo
     bool canRedo() const override;
 
+    // 检查是否支持某个命令类型
+    bool supportsCommand(EditorCommandType type) const override;
+
     // 设置行内容（用于文件加载）
     void setLines(const std::vector<std::string>& newLines);
 

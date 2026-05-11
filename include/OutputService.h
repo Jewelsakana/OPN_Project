@@ -28,6 +28,9 @@ public:
     // 输出纯文本（用于向后兼容）
     void outputText(const std::string& text);
 
+    // 输出XML树形结构
+    void outputXmlTree(const class IXmlDocument& doc);
+
 private:
     // 递归打印目录树的辅助函数
     void printTreeNode(const TreeNode& node, const std::string& prefix, bool isLast);

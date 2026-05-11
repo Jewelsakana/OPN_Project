@@ -10,7 +10,7 @@ class FileSystemService;
 class DocumentManager;
 class OutputService;
 class LoggerManager;
-class TextEditor;
+class Editor;
 
 // FileCoordinator：文件加载/保存/初始化/关闭的业务逻辑
 class FileCoordinator {
@@ -23,15 +23,18 @@ public:
     void saveAllFiles();
     void initFile(const std::string& fileName, bool withLog = false);
 
-    // 设置TextEditor工厂（由WorkSpace注入）
-    void setEditorFactory(std::function<std::shared_ptr<TextEditor>()> factory);
+    // 设置编辑器工厂（由WorkSpace注入，根据扩展名创建对应的Editor）
+    void setEditorFactory(std::function<std::shared_ptr<Editor>(const std::string& extension)> factory);
 
 private:
+    // 根据文件名扩展名创建对应的编辑器
+    std::shared_ptr<Editor> createEditorForFile(const std::string& fileName);
+
     FileSystemService& fileSystemService_;
     DocumentManager& documentManager_;
     OutputService& outputService_;
     LoggerManager& loggerManager_;
-    std::function<std::shared_ptr<TextEditor>()> createTextEditor_;
+    std::function<std::shared_ptr<Editor>(const std::string& extension)> createEditorByExtension_;
 };
 
 #endif // FILECOORDINATOR_H

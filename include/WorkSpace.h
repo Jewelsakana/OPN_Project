@@ -140,7 +140,8 @@ private:
     // 状态变量
     bool exitRequested_;
 
-    std::shared_ptr<TextEditor> createTextEditor() const;
+    // 根据文件扩展名创建对应的编辑器（使用EditorFactory注册表）
+    std::shared_ptr<Editor> createEditorForExtension(const std::string& extension) const;
 
     // restoreFromMemento 辅助方法
     void restoreOpenFiles(const WorkspaceMemento& memento);

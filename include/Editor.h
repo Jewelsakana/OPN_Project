@@ -2,6 +2,7 @@
 #define EDITOR_H
 
 #include <memory>
+#include "CommandParser.h"
 
 // 前向声明
 class Command;
@@ -19,6 +20,9 @@ public:
     virtual void redo() {}
     virtual bool canUndo() const { return false; }
     virtual bool canRedo() const { return false; }
+
+    // 检查是否支持某个编辑器命令类型
+    virtual bool supportsCommand(EditorCommandType type) const = 0;
 };
 
 #endif // EDITOR_H

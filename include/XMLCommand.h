@@ -6,6 +6,7 @@
 
 // 前向声明
 class IXmlDocument;
+class OutputService;
 
 // XMLCommand：XML编辑命令基类，直接绑定IXmlDocument
 class XMLCommand : public Command {
@@ -105,6 +106,19 @@ private:
     std::string oldText_;
     int childIndex_ = -1;
     bool executed_ = false;
+};
+
+// XmlTreeCommand：显示XML树形结构（只读，不进入撤销栈）
+class XmlTreeCommand : public Command {
+public:
+    XmlTreeCommand(IXmlDocument* doc, OutputService* outputService);
+    void execute() override;
+    void undo() override;
+    bool isReadOnly() const override;
+
+private:
+    IXmlDocument* doc_;
+    OutputService* outputService_;
 };
 
 #endif // XMLCOMMAND_H

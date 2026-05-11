@@ -45,6 +45,11 @@ public:
     std::string getParentId(const std::string& id) const override;
     int getChildIndex(const std::string& id) const override;
 
+    // xml-tree 遍历
+    std::string getRootId() const override;
+    std::vector<std::string> getChildIds(const std::string& parentId) const override;
+    std::vector<std::pair<std::string, std::string>> getNodeAttributes(const std::string& id) const override;
+
     // 获取底层文档对象（仅限内部使用，谨慎调用）
     pugi::xml_document& getPugiDocument();
     const pugi::xml_document& getPugiDocument() const;

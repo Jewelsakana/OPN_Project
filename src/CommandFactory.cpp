@@ -56,12 +56,18 @@ std::unique_ptr<Command> CommandFactory::createFromParsed(
     }
 
     if (auto* ed = parsed.asEditor()) {
+        auto activeEditor = workspace->getActiveEditor();
+        if (!activeEditor) {
+            throw std::runtime_error("No active editor to execute editor command");
+        }
+
+        // 验证当前编辑器是否支持该命令类型
+        if (!activeEditor->supportsCommand(ed->editorType)) {
+            throw std::runtime_error("Command not supported for current editor type");
+        }
+
         if (isXmlCommandType(ed->editorType)) {
             static std::vector<std::string> dummyLines;  // XML命令不需要文本行
-            auto activeEditor = workspace->getActiveEditor();
-            if (!activeEditor) {
-                throw std::runtime_error("No active editor to execute XML command");
-            }
             auto xmlEditor = dynamic_cast<XmlEditor*>(activeEditor.get());
             if (!xmlEditor) {
                 throw std::runtime_error("Active editor is not an XML editor");
@@ -76,7 +82,7 @@ std::unique_ptr<Command> CommandFactory::createFromParsed(
         }
 
         if (!activeTextEditor) {
-            throw std::runtime_error("No active editor to execute editor command");
+            throw std::runtime_error("No active editor to execute text editor command");
         }
         auto textEngine = activeTextEditor->getTextEngine();
         if (!textEngine) {

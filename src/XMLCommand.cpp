@@ -1,6 +1,7 @@
 #include "XMLCommand.h"
 #include "XmlEditor.h"
 #include "IXmlDocument.h"
+#include "OutputService.h"
 #include "CommandFactory.h"
 
 // 自注册：XML 编辑器命令工厂
@@ -20,6 +21,20 @@ namespace {
     REGISTER_XML_CMD(EditorCommandType::XmlDelete, XmlDeleteCommand,
                      ed.targetId,
                      *ed.targetId)
+
+    // XmlTreeCommand: 需要 IXmlDocument* 和 OutputService*
+    static bool _reg_xml_XmlTreeCommand = []() {
+        CommandFactory::registerEditorCreator(EditorCommandType::XmlTree,
+            [](const EditorParsedCommand& ed, const EditorCommandContext& ctx) -> std::unique_ptr<Command> {
+                if (ctx.xmlEditor) {
+                    return std::make_unique<XmlTreeCommand>(
+                        &ctx.xmlEditor->getDocument(),
+                        ctx.outputService);
+                }
+                return nullptr;
+            });
+        return true;
+    }();
 }
 
 // XMLCommand 基类
@@ -144,4 +159,23 @@ void XmlDeleteCommand::undo() {
         doc_->appendChild(tagName_, elementId_, parentId_, oldText_);
     }
     executed_ = false;
+}
+
+// ---- XmlTreeCommand ----
+
+XmlTreeCommand::XmlTreeCommand(IXmlDocument* doc, OutputService* outputService)
+    : doc_(doc)
+    , outputService_(outputService) {
+}
+
+void XmlTreeCommand::execute() {
+    outputService_->outputXmlTree(*doc_);
+}
+
+void XmlTreeCommand::undo() {
+    // 只读命令，无需撤销
+}
+
+bool XmlTreeCommand::isReadOnly() const {
+    return true;
 }

@@ -1,7 +1,9 @@
 #include "OutputService.h"
+#include "IXmlDocument.h"
 #include <iostream>
 #include <vector>
 #include <string>
+#include <functional>
 
 OutputService::OutputService() {}
 
@@ -100,6 +102,77 @@ void OutputService::printTreeNode(const TreeNode& node, const std::string& prefi
     for (size_t i = 0; i < node.children.size(); ++i) {
         bool childIsLast = (i == node.children.size() - 1);
         printTreeNode(*node.children[i], childPrefix, childIsLast);
+    }
+}
+
+void OutputService::outputXmlTree(const IXmlDocument& doc) {
+    std::string rootId = doc.getRootId();
+    if (rootId.empty()) {
+        outputLine("(empty)");
+        return;
+    }
+
+    // 构建属性字符串
+    auto formatAttrs = [&](const std::string& id) -> std::string {
+        auto attrs = doc.getNodeAttributes(id);
+        if (attrs.empty()) return "";
+        std::string result;
+        for (size_t i = 0; i < attrs.size(); ++i) {
+            if (i > 0) result += ", ";
+            result += attrs[i].first + "=\"" + attrs[i].second + "\"";
+        }
+        return " [" + result + "]";
+    };
+
+    // 递归打印
+    std::function<void(const std::string&, const std::string&, const std::string&)> printNodeRec;
+    printNodeRec = [&](const std::string& id, const std::string& prefix, const std::string& recursePrefix) {
+        std::string nodeName = doc.getNodeName(id);
+        if (nodeName.empty()) return;
+
+        std::cout << prefix << nodeName << formatAttrs(id) << std::endl;
+
+        std::string text = doc.getNodeValue(id);
+        auto childIds = doc.getChildIds(id);
+
+        bool hasText = !text.empty();
+        size_t totalChildren = childIds.size() + (hasText ? 1 : 0);
+        size_t count = 0;
+
+        for (size_t i = 0; i < childIds.size(); ++i) {
+            ++count;
+            bool isLast = (count == totalChildren);
+            std::string nextPrefix = recursePrefix + (isLast ? "└── " : "├── ");
+            std::string nextRecurse = recursePrefix + (isLast ? "    " : "│   ");
+            printNodeRec(childIds[i], nextPrefix, nextRecurse);
+        }
+
+        if (hasText) {
+            std::string textPrefix = recursePrefix + "└── ";
+            std::cout << textPrefix << "\"" << text << "\"" << std::endl;
+        }
+    };
+
+    // 打印根节点
+    std::string nodeName = doc.getNodeName(rootId);
+    std::cout << nodeName << formatAttrs(rootId) << std::endl;
+
+    std::string text = doc.getNodeValue(rootId);
+    auto childIds = doc.getChildIds(rootId);
+    bool hasText = !text.empty();
+    size_t totalChildren = childIds.size() + (hasText ? 1 : 0);
+    size_t count = 0;
+
+    for (size_t i = 0; i < childIds.size(); ++i) {
+        ++count;
+        bool isLast = (count == totalChildren);
+        printNodeRec(childIds[i],
+                     isLast ? "└── " : "├── ",
+                     isLast ? "    " : "│   ");
+    }
+
+    if (hasText) {
+        std::cout << "└── \"" << text << "\"" << std::endl;
     }
 }
 

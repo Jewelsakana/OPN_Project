@@ -45,7 +45,18 @@
 - **Undo**: 重新插入被删除的元素（保存tagName、parentId、文本、位置等快照）
 
 ### 6. `xml-tree` - 显示XML树形结构
-- 暂未实现，等后续再实现
+- **格式**: `xml-tree [file]`
+- **功能**: 以树形结构打印XML文件内容，展示元素的层级关系、属性和文本内容
+- **参数**: 不指定参数显示当前活动文件，指定file显示指定XML文件
+- **只读**: 不进入撤销栈
+- **输出**:
+  ```
+  bookstore [id="root"]
+  ├── book [id="book1", category="COOKING"]
+  │   └── title [id="title1", lang="en"]
+  │       └── "Everyday Italian"
+  ```
+- **实现**: XmlTreeCommand → OutputService::outputXmlTree → IXmlDocument遍历方法
 
 ## 架构说明
 
@@ -88,3 +99,74 @@
 - 命令行解析测试: 8种解析场景
 - ID映射同步测试: 验证操作后映射表正确更新
 - 回归测试: 全部11个现有测试套件通过
+
+---
+
+## XML编辑命令第二阶段：xml-tree + init/save/load 兼容 + 命令验证
+
+### 7. `xml-tree` 命令实现
+- **XmlTreeParser**: 新增解析器，注册到CommandParser策略表
+- **XmlTreeCommand**: 只读命令，不进入撤销栈，直接调用OutputService::outputXmlTree
+- **OutputService::outputXmlTree**: 递归遍历IXmlDocument，使用树形字符(├──/└──/│)显示层级，包含属性和文本
+- **IXmlDocument 遍历方法**: 新增 getRootId()、getChildIds()、getNodeAttributes() 三个纯虚方法
+- **XmlDocumentWrapper**: 实现遍历方法，基于pugixml的children()和attributes()迭代器
+
+### 8. `init` 命令 XML 支持
+- **自动类型识别**: 通过文件扩展名(.xml→XmlEditor, .txt→TextEditor)自动创建对应编辑器
+- **XML 初始内容**: `<?xml version="1.0" encoding="UTF-8"?>\n<root id="root">\n</root>\n`
+- **with-log 支持**: 在XML声明前添加 `# log` 注释行
+- **FileCoordinator 重构**: 编辑器工厂从 `function<shared_ptr<TextEditor>()>` 改为 `function<shared_ptr<Editor>(const string& extension)>`
+
+### 9. `save` 和 `load` 命令 XML 支持
+- **load**: 检测.xml扩展名 → 创建XmlEditor → 调用XmlEditor::loadFromFile
+- **save**: 检测编辑器类型 → XmlEditor::saveToFile 或 TextEditor::getLines + FileSystemService::saveFile
+- **FileCoordinator**: 通过 dynamic_cast 区分 XML 和文本编辑器，调用不同的保存/加载方法
+
+### 10. Workspace 编辑器创建
+- **EditorFactory 集成**: WorkSpace 通过 EditorFactory::createEditor(extension) 创建对应编辑器
+- **TextEngine 注入**: 仅对 TextEditor 注入 TextEngine
+- **openFile / restoreOpenFiles**: 根据文件扩展名创建编辑器
+- **createEditorForExtension**: 替换原来的 createTextEditor，使用注册表模式避免 switch-case
+
+### 11. 命令类型验证
+- **Editor::supportsCommand(EditorCommandType)**: 新增纯虚方法
+- **TextEditor**: 支持 Append/Insert/Delete/Replace/Show，拒绝所有 XML 命令
+- **XmlEditor**: 支持 InsertBefore/AppendChild/EditId/EditText_/XmlDelete/XmlTree，拒绝所有文本命令
+- **CommandFactory**: 在 createFromParsed 中调用 supportsCommand 验证，不匹配则抛出异常
+
+### 新增/修改文件 (第二阶段)
+
+| 文件 | 变更类型 | 说明 |
+|------|---------|------|
+| `include/Editor.h` | 修改 | 新增 pure virtual supportsCommand() |
+| `include/CommandParser.h` | 修改 | 新增 XmlTree 枚举值 |
+| `include/CommandParserStrategy.h` | 修改 | 新增 XmlTreeParser 类声明 |
+| `src/CommandParserStrategy.cpp` | 修改 | 实现 XmlTreeParser |
+| `src/CommandParser.cpp` | 修改 | 注册 XmlTreeParser |
+| `include/IXmlDocument.h` | 修改 | 新增 getRootId/getChildIds/getNodeAttributes |
+| `include/XmlDocumentWrapper.h` | 修改 | 新增遍历方法声明 |
+| `src/XmlDocumentWrapper.cpp` | 修改 | 实现遍历方法 |
+| `include/OutputService.h` | 修改 | 新增 outputXmlTree 方法声明 |
+| `src/OutputService.cpp` | 修改 | 实现 outputXmlTree 递归树形输出 |
+| `include/XMLCommand.h` | 修改 | 新增 XmlTreeCommand 类 |
+| `src/XMLCommand.cpp` | 修改 | 实现 XmlTreeCommand + 自注册 |
+| `include/TextEditor.h` | 修改 | 新增 supportsCommand 声明 |
+| `src/TextEditor.cpp` | 修改 | 实现 supportsCommand |
+| `include/XmlEditor.h` | 修改 | 新增 supportsCommand 声明 |
+| `src/XmlEditor.cpp` | 修改 | 实现 supportsCommand |
+| `include/FileCoordinator.h` | 修改 | 工厂签名改为按扩展名创建Editor |
+| `src/FileCoordinator.cpp` | 重写 | 支持.txt和.xml双格式的load/save/init |
+| `include/WorkSpace.h` | 修改 | createTextEditor → createEditorForExtension |
+| `src/WorkSpace.cpp` | 修改 | 集成EditorFactory，扩展名感知编辑器创建 |
+| `src/CommandFactory.cpp` | 修改 | 新增 supportsCommand 验证逻辑 |
+| `tests/test_xml_integration.cpp` | 新增 | 12组集成测试(xml-tree/init/save/load/command validation/traversal) |
+| `tests/test_editor_factory.cpp` | 修改 | MockEditor 实现 supportsCommand |
+
+### 设计要点 (第二阶段)
+
+1. **扩展名驱动**: 通过文件扩展名自动选择编辑器类型，使用EditorFactory注册表避免switch-case
+2. **接口隔离**: Editor::supportsCommand 让命令验证逻辑集中在编辑器层，不在命令类中添加判断
+3. **注册表模式**: 所有编辑器类型通过 REGISTER_EDITOR 宏注册，新增类型无需修改工厂代码
+4. **统一门面**: WorkSpace 通过 createEditorForExtension 统一编辑器创建入口
+5. **只读命令**: XmlTreeCommand 设置 isReadOnly=true，不进入撤销栈
+6. **遍历接口**: IXmlDocument 新增3个遍历方法，仅暴露字符串接口，不泄露pugi类型

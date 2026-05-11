@@ -310,3 +310,37 @@ int XmlDocumentWrapper::getChildIndex(const std::string& id) const {
     }
     return -1;
 }
+
+std::string XmlDocumentWrapper::getRootId() const {
+    pugi::xml_node rootNode = root();
+    if (!rootNode) return "";
+    pugi::xml_attribute idAttr = rootNode.attribute("id");
+    return idAttr.empty() ? "" : std::string(idAttr.value());
+}
+
+std::vector<std::string> XmlDocumentWrapper::getChildIds(const std::string& parentId) const {
+    std::vector<std::string> childIds;
+    auto it = idToNodeMap_.find(parentId);
+    if (it == idToNodeMap_.end()) return childIds;
+
+    for (pugi::xml_node child : it->second.children()) {
+        if (child.type() == pugi::node_element) {
+            pugi::xml_attribute idAttr = child.attribute("id");
+            if (!idAttr.empty()) {
+                childIds.push_back(idAttr.value());
+            }
+        }
+    }
+    return childIds;
+}
+
+std::vector<std::pair<std::string, std::string>> XmlDocumentWrapper::getNodeAttributes(const std::string& id) const {
+    std::vector<std::pair<std::string, std::string>> attrs;
+    auto it = idToNodeMap_.find(id);
+    if (it == idToNodeMap_.end()) return attrs;
+
+    for (pugi::xml_attribute attr : it->second.attributes()) {
+        attrs.emplace_back(attr.name(), attr.value());
+    }
+    return attrs;
+}

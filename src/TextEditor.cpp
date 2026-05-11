@@ -72,6 +72,19 @@ void TextEditor::setLines(const std::vector<std::string>& newLines) {
     setModified(false); // 加载文件时视为未修改
 }
 
+bool TextEditor::supportsCommand(EditorCommandType type) const {
+    switch (type) {
+        case EditorCommandType::Append:
+        case EditorCommandType::Insert:
+        case EditorCommandType::Delete:
+        case EditorCommandType::Replace:
+        case EditorCommandType::Show:
+            return true;
+        default:
+            return false;
+    }
+}
+
 void TextEditor::clear() {
     lines.clear();
     lines.push_back(""); // 保持至少一个空行

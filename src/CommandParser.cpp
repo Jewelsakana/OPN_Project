@@ -36,6 +36,7 @@ void CommandParser::registerStrategies() {
     strategies_.push_back(std::make_unique<AppendChildParser>());
     strategies_.push_back(std::make_unique<EditIdParser>());
     strategies_.push_back(std::make_unique<EditTextParser>());
+    strategies_.push_back(std::make_unique<XmlTreeParser>());
 }
 
 ParsedCommand CommandParser::parse(const std::string& commandString) {

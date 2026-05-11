@@ -1,6 +1,8 @@
 #include "WorkSpace.h"
 #include "TextEditor.h"
 #include "TextEngine.h"
+#include "XmlEditor.h"
+#include "EditorFactory.h"
 #include "Logger.h"
 #include <algorithm>
 #include <stdexcept>
@@ -53,8 +55,8 @@ WorkSpace::WorkSpace()
     , fileCoordinator_(fileSystemService_, documentManager_, outputService_, loggerManager_)
     , logCoordinator_(loggerManager_, outputService_)
     , exitRequested_(false) {
-    // 注入TextEditor工厂
-    fileCoordinator_.setEditorFactory([this]() { return createTextEditor(); });
+    // 注入编辑器工厂（根据扩展名创建对应编辑器）
+    fileCoordinator_.setEditorFactory([this](const std::string& ext) { return createEditorForExtension(ext); });
     loadConfig(".editor_config");
 }
 
@@ -65,7 +67,12 @@ WorkSpace::~WorkSpace() {
 
 void WorkSpace::openFile(const std::string& fileName) {
     if (!documentManager_.isFileOpen(fileName)) {
-        auto editor = createTextEditor();
+        std::string ext;
+        auto dotPos = fileName.rfind('.');
+        if (dotPos != std::string::npos) {
+            ext = fileName.substr(dotPos);
+        }
+        auto editor = createEditorForExtension(ext);
         editorCoordinator_.openFile(fileName, editor);
     }
 }
@@ -135,7 +142,12 @@ void WorkSpace::restoreOpenFiles(const WorkspaceMemento& memento) {
     editorCoordinator_.clear();
     const auto& openFiles = memento.getOpenFiles();
     for (const auto& fileName : openFiles) {
-        auto editor = createTextEditor();
+        std::string ext;
+        auto dotPos = fileName.rfind('.');
+        if (dotPos != std::string::npos) {
+            ext = fileName.substr(dotPos);
+        }
+        auto editor = createEditorForExtension(ext);
         editorCoordinator_.openFile(fileName, editor);
     }
 }
@@ -277,11 +289,21 @@ void WorkSpace::showLog(const std::string& fileName) {
     logCoordinator_.showLog(fileName, getActiveFileName());
 }
 
-std::shared_ptr<TextEditor> WorkSpace::createTextEditor() const {
-    auto editor = std::make_shared<TextEditor>();
-    auto textEngine = std::make_shared<TextEngine>();
-    editor->setTextEngine(textEngine);
-    return editor;
+std::shared_ptr<Editor> WorkSpace::createEditorForExtension(const std::string& extension) const {
+    auto editorPtr = EditorFactory::createEditor(extension);
+    if (!editorPtr) {
+        // 默认回退到TextEditor
+        auto textEditor = std::make_shared<TextEditor>();
+        auto textEngine = std::make_shared<TextEngine>();
+        textEditor->setTextEngine(textEngine);
+        return textEditor;
+    }
+    // 如果是TextEditor，注入TextEngine
+    if (auto textEditor = dynamic_cast<TextEditor*>(editorPtr.get())) {
+        auto textEngine = std::make_shared<TextEngine>();
+        textEditor->setTextEngine(textEngine);
+    }
+    return editorPtr;
 }
 
 void WorkSpace::notifySessionStart() {

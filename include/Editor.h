@@ -2,6 +2,7 @@
 #define EDITOR_H
 
 #include <memory>
+#include <string>
 #include "CommandParser.h"
 
 // 前向声明
@@ -23,6 +24,15 @@ public:
 
     // 检查是否支持某个编辑器命令类型
     virtual bool supportsCommand(EditorCommandType type) const = 0;
+
+    // 文件内容序列化/反序列化（多态方法，消除FileCoordinator中的dynamic_cast分支）
+    virtual void loadFromData(const std::string& content) {}
+    virtual std::string saveToData() const { return ""; }
+    virtual void initContent(bool withLog) {}
+
+    // 查询是否已修改
+    virtual bool isModified() const { return false; }
+    virtual void setModified(bool modified) {}
 };
 
 #endif // EDITOR_H

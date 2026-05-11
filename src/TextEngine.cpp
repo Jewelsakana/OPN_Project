@@ -3,6 +3,37 @@
 #include <sstream>
 #include <iostream>
 
+// 序列化：行数组转字符串
+std::string TextEngine::linesToString(const std::vector<std::string>& lines) const {
+    if (lines.empty()) return "";
+    std::ostringstream oss;
+    for (size_t i = 0; i < lines.size(); ++i) {
+        oss << lines[i];
+        if (i != lines.size() - 1) {
+            oss << '\n';
+        }
+    }
+    return oss.str();
+}
+
+// 反序列化：字符串转行数组
+std::vector<std::string> TextEngine::stringToLines(const std::string& content) const {
+    std::vector<std::string> result;
+    if (content.empty()) {
+        result.push_back("");
+        return result;
+    }
+    std::istringstream stream(content);
+    std::string line;
+    while (std::getline(stream, line)) {
+        result.push_back(line);
+    }
+    if (content.back() == '\n') {
+        result.push_back("");
+    }
+    return result;
+}
+
 // 辅助方法：分割包含换行符的文本为多行
 std::vector<std::string> TextEngine::splitTextByNewlines(const std::string& text) const {
     std::vector<std::string> result;

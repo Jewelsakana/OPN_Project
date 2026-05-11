@@ -27,9 +27,6 @@ public:
     void setEditorFactory(std::function<std::shared_ptr<Editor>(const std::string& extension)> factory);
 
 private:
-    // 根据文件名扩展名创建对应的编辑器
-    std::shared_ptr<Editor> createEditorForFile(const std::string& fileName);
-
     FileSystemService& fileSystemService_;
     DocumentManager& documentManager_;
     OutputService& outputService_;

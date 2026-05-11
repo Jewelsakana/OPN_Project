@@ -90,6 +90,10 @@ public:
     // 辅助方法：将1-based行列号转换为0-based索引，并进行边界检查
     void validateAndConvertIndices(const std::vector<std::string>& lines, int& row, int& col, bool checkColBounds = true) const;
 
+    // 序列化/反序列化：行数组与字符串之间的转换
+    std::vector<std::string> stringToLines(const std::string& content) const;
+    std::string linesToString(const std::vector<std::string>& lines) const;
+
     // 辅助方法：分割包含换行符的文本为多行
     std::vector<std::string> splitTextByNewlines(const std::string& text) const;
 

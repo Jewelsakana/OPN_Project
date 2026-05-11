@@ -8,13 +8,11 @@
 #include <unordered_map>
 
 namespace {
-    // 编辑器命令注册表
     std::unordered_map<EditorCommandType, EditorCommandCreator>& editorRegistry() {
         static std::unordered_map<EditorCommandType, EditorCommandCreator> registry;
         return registry;
     }
 
-    // 工作区命令注册表
     std::unordered_map<WorkSpaceCommandType, WorkSpaceCommandCreator>& workSpaceRegistry() {
         static std::unordered_map<WorkSpaceCommandType, WorkSpaceCommandCreator> registry;
         return registry;
@@ -29,17 +27,17 @@ void CommandFactory::registerWorkSpaceCreator(WorkSpaceCommandType type, WorkSpa
     workSpaceRegistry()[type] = std::move(creator);
 }
 
-static bool isXmlCommandType(EditorCommandType type) {
-    switch (type) {
-        case EditorCommandType::InsertBefore:
-        case EditorCommandType::AppendChild:
-        case EditorCommandType::EditId:
-        case EditorCommandType::EditText_:
-        case EditorCommandType::XmlDelete:
-            return true;
-        default:
-            return false;
+static EditorCommandContext buildEditorContext(Editor* activeEditor, WorkSpace* workspace) {
+    EditorCommandContext ctx;
+    ctx.outputService = &workspace->getOutputService();
+
+    if (auto xmlEditor = dynamic_cast<XmlEditor*>(activeEditor)) {
+        ctx.xmlEditor = xmlEditor;
+    } else if (auto textEditor = dynamic_cast<TextEditor*>(activeEditor)) {
+        ctx.lines = &textEditor->getLinesRef();
+        ctx.textEngine = textEditor->getTextEngine().get();
     }
+    return ctx;
 }
 
 std::unique_ptr<Command> CommandFactory::createFromParsed(
@@ -61,38 +59,11 @@ std::unique_ptr<Command> CommandFactory::createFromParsed(
             throw std::runtime_error("No active editor to execute editor command");
         }
 
-        // 验证当前编辑器是否支持该命令类型
         if (!activeEditor->supportsCommand(ed->editorType)) {
             throw std::runtime_error("Command not supported for current editor type");
         }
 
-        if (isXmlCommandType(ed->editorType)) {
-            static std::vector<std::string> dummyLines;  // XML命令不需要文本行
-            auto xmlEditor = dynamic_cast<XmlEditor*>(activeEditor.get());
-            if (!xmlEditor) {
-                throw std::runtime_error("Active editor is not an XML editor");
-            }
-            EditorCommandContext ctx{
-                dummyLines,
-                nullptr,
-                &workspace->getOutputService(),
-                xmlEditor
-            };
-            return createEditorCommand(*ed, ctx);
-        }
-
-        if (!activeTextEditor) {
-            throw std::runtime_error("No active editor to execute text editor command");
-        }
-        auto textEngine = activeTextEditor->getTextEngine();
-        if (!textEngine) {
-            throw std::runtime_error("TextEditor has no TextEngine");
-        }
-        EditorCommandContext ctx{
-            activeTextEditor->getLinesRef(),
-            textEngine.get(),
-            &workspace->getOutputService()
-        };
+        auto ctx = buildEditorContext(activeEditor.get(), workspace);
         return createEditorCommand(*ed, ctx);
     }
 

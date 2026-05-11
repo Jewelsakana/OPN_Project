@@ -108,6 +108,25 @@ bool XmlEditor::supportsCommand(EditorCommandType type) const {
     }
 }
 
+void XmlEditor::loadFromData(const std::string& content) {
+    loadFromString(content);
+}
+
+std::string XmlEditor::saveToData() const {
+    return document_->saveToString();
+}
+
+void XmlEditor::initContent(bool withLog) {
+    std::string xmlContent;
+    if (withLog) {
+        xmlContent = "# log\n<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<root id=\"root\">\n</root>\n";
+    } else {
+        xmlContent = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<root id=\"root\">\n</root>\n";
+    }
+    loadFromString(xmlContent);
+    setModified(true);
+}
+
 void XmlEditor::clear() {
     document_->clear();
     modified_ = false;

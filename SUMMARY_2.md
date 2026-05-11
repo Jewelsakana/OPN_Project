@@ -170,3 +170,100 @@
 4. **统一门面**: WorkSpace 通过 createEditorForExtension 统一编辑器创建入口
 5. **只读命令**: XmlTreeCommand 设置 isReadOnly=true，不进入撤销栈
 6. **遍历接口**: IXmlDocument 新增3个遍历方法，仅暴露字符串接口，不泄露pugi类型
+
+---
+
+## 第三阶段：重构（设计22）
+
+对OutputService、FileCoordinator、CommandFactory、XmlDocumentWrapper四个类进行重构。
+
+### 12. OutputService 重构
+- **问题**: outputXmlTree 根节点打印与递归逻辑重复，约70行过长，嵌套两个lambda
+- **修改**:
+  - 提取 `printXmlSubTree(IXmlDocument&, id, prefix, indent)` 私有递归方法，根节点和子节点统一用同一逻辑
+  - 提取 `formatXmlAttrs(IXmlDocument&, id)` 静态私有方法格式化属性字符串
+  - `outputXmlTree` 入口缩减为 ~15行，只获取根ID并调用递归方法
+  - 根节点使用空 prefix/indent 传入，不再特殊处理
+
+### 13. FileCoordinator 重构
+- **问题**: dynamic_cast 分支在 loadFile/saveFile/initFile 中重复3次; createEditorForFile 和 isXmlFile 各自实现相同扩展名提取; 对编辑器内部实现知道太多
+- **修改**:
+  - 在 `Editor` 接口新增 `loadFromData(string)`, `saveToData() -> string`, `initContent(bool withLog)` 多态方法，由各编辑器子类实现
+  - `TextEditor::loadFromData/saveToData/initContent`: 文本行与字符串之间的转换
+  - `XmlEditor::loadFromData/saveToData/initContent`: 委托给 XmlDocumentWrapper 的字符串方法
+  - `FileCoordinator::loadFile`: 读取原始内容 → `editor->loadFromData(content)`
+  - `FileCoordinator::saveFile`: `editor->saveToData()` → 写入文件
+  - `FileCoordinator::initFile`: `editor->initContent(withLog)`
+  - 消除所有 `dynamic_cast<XmlEditor*>` / `dynamic_cast<TextEditor*>` 分支
+  - 提取 `getFileExtension()` 辅助函数消除重复
+  - 移除 `createEditorForFile` 方法，内联扩展名提取+工厂调用
+
+### 14. CommandFactory 重构
+- **问题**: EditorCommandContext 字段互不相关强行捆绑; isXmlCommandType 硬编码XML命令类型与 supportsCommand 信息重复
+- **修改**:
+  - `EditorCommandContext::lines` 从 `vector<string>&` 改为 `vector<string>*`（指针），消除 dummyLines 静态变量
+  - `EditorCommandContext::textEngine` 从引用改为指针
+  - 新增 `buildEditorContext(Editor*, WorkSpace*)` 函数通过 dynamic_cast 确定活跃编辑器类型，填充对应上下文字段
+  - 移除 `isXmlCommandType()` 函数（Editor::supportsCommand 已在外部完成验证）
+  - 更新 `REGISTER_EDITOR_CMD_GUARDED` 宏：改用 `ctx.lines` 空指针检查，使用 `*ctx.lines` 解引用
+  - 更新 `REGISTER_EDITOR_CMD_SHOW` 宏：同上
+  - `REGISTER_XML_CMD` 宏：使用 `ctx.xmlEditor` 空指针检查
+
+### 15. XmlDocumentWrapper 重构
+- **问题**: insertBefore 和 appendChild 创建元素代码重复; collectIds 根节点与递归lambda重复; getPugiDocument/root 为 public 暴露 pugi 类型
+- **修改**:
+  - 提取 `createElement(parent, tagName, id, text, insertBefore, targetNode)` 私有方法统一创建元素逻辑
+  - 提取 `registerNodeId(node)` 私有方法统一 ID 验证 + 去重 + 插入映射逻辑
+  - `collectIds()` 根节点和子节点统一通过 `registerNodeId` + 递归遍历处理，减少约 20 行重复代码
+  - `getPugiDocument()` 和 `root()` 改为 private，外部不再能访问 pugi 类型
+  - 新增 `rebuildIdMap()` 私有方法（等同于 `collectIds()`），语义更清晰
+
+### 修改文件 (第三阶段)
+
+| 文件 | 变更类型 | 说明 |
+|------|---------|------|
+| `include/Editor.h` | 修改 | 新增 loadFromData/saveToData/initContent 多态方法 |
+| `include/TextEditor.h` | 修改 | 新增多态方法声明 |
+| `src/TextEditor.cpp` | 修改 | 实现多态方法 |
+| `include/XmlEditor.h` | 修改 | 新增多态方法声明 |
+| `src/XmlEditor.cpp` | 修改 | 实现多态方法 |
+| `include/FileCoordinator.h` | 修改 | 工厂签名改为按扩展名创建Editor; 移除 createEditorForFile |
+| `src/FileCoordinator.cpp` | 重写 | 多态派发消除 dynamic_cast; 提取 getFileExtension |
+| `include/FileSystemService.h` | 修改 | 新增 readFileContent/writeFileContent |
+| `src/FileSystemService.cpp` | 修改 | 实现原始文件读写 |
+| `include/OutputService.h` | 修改 | 新增 printXmlSubTree/formatXmlAttrs 私有方法 |
+| `src/OutputService.cpp` | 修改 | 分解 outputXmlTree 为3方法 |
+| `include/CommandFactory.h` | 修改 | EditorCommandContext 引用改指针; 更新宏 |
+| `src/CommandFactory.cpp` | 修改 | 新增 buildEditorContext; 移除 isXmlCommandType/dummyLines |
+| `include/XmlDocumentWrapper.h` | 修改 | 新增 createElement/registerNodeId/rebuildIdMap; getPugiDocument/root 改 private |
+| `src/XmlDocumentWrapper.cpp` | 重写 | 提取公共方法消除重复; 统一 collectIds |
+| `include/TextEngine.h` | 修改 | 新增 linesToString/stringToLines 序列化方法 |
+| `src/TextEngine.cpp` | 修改 | 实现序列化/反序列化方法 |
+| `src/TextEditor.cpp` | 修改 | loadFromData/saveToData 委托给 TextEngine |
+| `src/FileCoordinator.cpp` | 修改 | 移除 !isXml 守卫，XML文件也支持日志记录 |
+
+### 设计要点 (第三阶段)
+
+1. **多态替代 dynamic_cast**: FileCoordinator 通过 Editor 多态接口消除所有 dynamic_cast 分支，FileCoordinator 不再需要知道编辑器具体类型
+2. **接口解耦**: Editor 子类各自实现 loadFromData/saveToData/initContent，FileCoordinator 只依赖 Editor 抽象接口
+3. **单一职责**: OutputService::outputXmlTree 拆分为入口+递归+格式化三个职责明确的方法
+4. **公共逻辑提取**: XmlDocumentWrapper 的 createElement/registerNodeId 消除了 insertBefore 与 appendChild 之间、collectIds 根节点与递归之间的重复代码
+5. **封装强化**: XmlDocumentWrapper 的 getPugiDocument/root 改为 private，pugi 类型不再对外暴露
+6. **消除硬编码**: CommandFactory 移除 isXmlCommandType switch，上下文构建通过 dynamic_cast 判断活跃编辑器类型，新增编辑器类型无需修改此代码
+
+### 补充修复 (第三阶段)
+
+#### 16. TextEditor 序列化委托给 TextEngine
+- **问题**: TextEditor::loadFromData/saveToData 直接实现 string ↔ vector&lt;string&gt; 转换逻辑，但 TextEngine 作为文本操作引擎已有 show() 等方法，序列化应归入 TextEngine
+- **修改**:
+  - TextEngine 新增 `stringToLines(content)` 反序列化方法和 `linesToString(lines)` 序列化方法
+  - TextEditor::loadFromData 委托 `textEngine->stringToLines(content)`
+  - TextEditor::saveToData 委托 `textEngine->linesToString(lines)`
+  - TextEditor.cpp 移除不再需要的 `#include <sstream>`
+
+#### 17. XML 文件日志记录支持
+- **问题**: FileCoordinator 中 `initFile` 和 `loadFile` 的 `!isXml` 守卫阻止 XML 文件启用日志。实际上观察者通知机制在 CommandController::parseAndExecuteCommand 中统一调用 `workspace_->notify(event)`，对两种编辑器类型都有效
+- **修改**:
+  - `initFile`: 移除 `!isXml` 守卫，`if (withLog)` 直接启动日志
+  - `loadFile`: 移除 `!isXml` 守卫，检测到 `# log` 头即启动日志
+  - pugixml 可容忍 `# log` 文本在 XML 声明之前（作为文档级 PCDATA 节点），root 元素仍正常解析

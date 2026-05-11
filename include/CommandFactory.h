@@ -16,10 +16,10 @@ class XmlEditor;
 
 // 编辑器命令工厂上下文
 struct EditorCommandContext {
-    std::vector<std::string>& lines;
-    TextEngine* textEngine;
-    OutputService* outputService;
-    XmlEditor* xmlEditor = nullptr;  // 非持有，仅XML命令使用
+    std::vector<std::string>* lines = nullptr;  // 仅文本命令使用
+    TextEngine* textEngine = nullptr;           // 仅文本命令使用
+    OutputService* outputService = nullptr;
+    XmlEditor* xmlEditor = nullptr;             // 仅XML命令使用
 };
 
 // 工厂函数类型
@@ -58,7 +58,7 @@ private:
     static bool _reg_##CLASS = []() { \
         CommandFactory::registerEditorCreator(ENUM, \
             [](const EditorParsedCommand& ed, const EditorCommandContext& ctx) -> std::unique_ptr<Command> { \
-                if (GUARD) return std::make_unique<CLASS>(ctx.lines, ctx.textEngine, ##__VA_ARGS__); \
+                if ((GUARD) && ctx.lines) return std::make_unique<CLASS>(*ctx.lines, ctx.textEngine, ##__VA_ARGS__); \
                 return nullptr; \
             }); \
         return true; \
@@ -69,10 +69,13 @@ private:
     static bool _reg_##CLASS = []() { \
         CommandFactory::registerEditorCreator(ENUM, \
             [](const EditorParsedCommand& ed, const EditorCommandContext& ctx) -> std::unique_ptr<Command> { \
-                if (ed.startLine && ed.endLine) \
-                    return std::make_unique<CLASS>(ctx.lines, ctx.textEngine, ctx.outputService, *ed.startLine, *ed.endLine); \
-                else \
-                    return std::make_unique<CLASS>(ctx.lines, ctx.textEngine, ctx.outputService); \
+                if (ctx.lines) { \
+                    if (ed.startLine && ed.endLine) \
+                        return std::make_unique<CLASS>(*ctx.lines, ctx.textEngine, ctx.outputService, *ed.startLine, *ed.endLine); \
+                    else \
+                        return std::make_unique<CLASS>(*ctx.lines, ctx.textEngine, ctx.outputService); \
+                } \
+                return nullptr; \
             }); \
         return true; \
     }();

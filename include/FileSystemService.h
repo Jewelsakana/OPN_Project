@@ -38,6 +38,12 @@ public:
     // 获取文件最后修改时间
     std::string getFileLastModified(const std::string& fileName) const;
 
+    // 读取文件原始内容（用于Editor多态反序列化）
+    std::string readFileContent(const std::string& fileName);
+
+    // 写入原始内容到文件（用于Editor多态序列化）
+    void writeFileContent(const std::string& fileName, const std::string& content);
+
 
 private:
     // 异常处理重写

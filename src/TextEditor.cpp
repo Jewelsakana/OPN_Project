@@ -85,6 +85,24 @@ bool TextEditor::supportsCommand(EditorCommandType type) const {
     }
 }
 
+void TextEditor::loadFromData(const std::string& content) {
+    lines = textEngine->stringToLines(content);
+    setModified(false);
+}
+
+std::string TextEditor::saveToData() const {
+    return textEngine->linesToString(lines);
+}
+
+void TextEditor::initContent(bool withLog) {
+    if (withLog) {
+        lines = { "# log" };
+    } else {
+        clear();
+    }
+    setModified(true);
+}
+
 void TextEditor::clear() {
     lines.clear();
     lines.push_back(""); // 保持至少一个空行

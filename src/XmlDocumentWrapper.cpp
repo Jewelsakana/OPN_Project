@@ -66,15 +66,7 @@ void XmlDocumentWrapper::collectIds() {
     std::function<void(pugi::xml_node)> traverse = [&](pugi::xml_node node) {
         for (pugi::xml_node child : node.children()) {
             if (child.type() == pugi::node_element) {
-                pugi::xml_attribute idAttr = child.attribute("id");
-                if (idAttr.empty()) {
-                    throw MissingIdException(child.name());
-                }
-                std::string id = idAttr.value();
-                if (idToNodeMap_.find(id) != idToNodeMap_.end()) {
-                    throw DuplicateIdException(id);
-                }
-                idToNodeMap_[id] = child;
+                registerNodeId(child);
                 traverse(child);
             }
         }
@@ -82,15 +74,7 @@ void XmlDocumentWrapper::collectIds() {
 
     pugi::xml_node rootNode = root();
     if (rootNode && rootNode.type() == pugi::node_element) {
-        pugi::xml_attribute idAttr = rootNode.attribute("id");
-        if (idAttr.empty()) {
-            throw MissingIdException(rootNode.name());
-        }
-        std::string id = idAttr.value();
-        if (idToNodeMap_.find(id) != idToNodeMap_.end()) {
-            throw DuplicateIdException(id);
-        }
-        idToNodeMap_[id] = rootNode;
+        registerNodeId(rootNode);
         traverse(rootNode);
     }
 }
@@ -135,10 +119,37 @@ std::vector<std::string> XmlDocumentWrapper::getAllIds() const {
     return ids;
 }
 
-// ---- 辅助方法 ----
+// ---- 内部辅助方法 ----
+
+pugi::xml_node XmlDocumentWrapper::createElement(pugi::xml_node parent, const std::string& tagName,
+                                                 const std::string& id, const std::string& text,
+                                                 bool insertBefore, pugi::xml_node targetNode) {
+    pugi::xml_node newNode;
+    if (insertBefore) {
+        newNode = parent.insert_child_before(tagName.c_str(), targetNode);
+    } else {
+        newNode = parent.append_child(tagName.c_str());
+    }
+    newNode.append_attribute("id") = id.c_str();
+    if (!text.empty()) {
+        newNode.append_child(pugi::node_pcdata).set_value(text.c_str());
+    }
+    return newNode;
+}
+
+void XmlDocumentWrapper::registerNodeId(pugi::xml_node node) {
+    pugi::xml_attribute idAttr = node.attribute("id");
+    if (idAttr.empty()) {
+        throw MissingIdException(node.name());
+    }
+    std::string id = idAttr.value();
+    if (idToNodeMap_.find(id) != idToNodeMap_.end()) {
+        throw DuplicateIdException(id);
+    }
+    idToNodeMap_[id] = node;
+}
 
 void XmlDocumentWrapper::rebuildIdMap() {
-    // 完全重建ID映射（操作后调用collectIds重新验证唯一性）
     collectIds();
 }
 
@@ -160,12 +171,7 @@ void XmlDocumentWrapper::insertBefore(const std::string& tagName, const std::str
         throw XmlDocumentException("元素ID已存在: " + newId);
     }
 
-    pugi::xml_node newNode = targetNode.parent().insert_child_before(tagName.c_str(), targetNode);
-    newNode.append_attribute("id") = newId.c_str();
-    if (!text.empty()) {
-        newNode.append_child(pugi::node_pcdata).set_value(text.c_str());
-    }
-
+    createElement(targetNode.parent(), tagName, newId, text, true, targetNode);
     rebuildIdMap();
 }
 
@@ -180,13 +186,7 @@ void XmlDocumentWrapper::appendChild(const std::string& tagName, const std::stri
         throw XmlDocumentException("元素ID已存在: " + newId);
     }
 
-    pugi::xml_node parentNode = it->second;
-    pugi::xml_node newNode = parentNode.append_child(tagName.c_str());
-    newNode.append_attribute("id") = newId.c_str();
-    if (!text.empty()) {
-        newNode.append_child(pugi::node_pcdata).set_value(text.c_str());
-    }
-
+    createElement(it->second, tagName, newId, text, false, pugi::xml_node());
     rebuildIdMap();
 }
 

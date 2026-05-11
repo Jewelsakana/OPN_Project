@@ -126,6 +126,28 @@ std::string FileSystemService::getFileLastModified(const std::string& fileName) 
 #endif
 }
 
+std::string FileSystemService::readFileContent(const std::string& fileName) {
+    return safeExecute([this, &fileName]() -> std::string {
+        std::ifstream file(fileName, std::ios::binary);
+        if (!file) {
+            throw std::runtime_error("无法打开文件: " + fileName);
+        }
+        std::ostringstream oss;
+        oss << file.rdbuf();
+        return oss.str();
+    });
+}
+
+void FileSystemService::writeFileContent(const std::string& fileName, const std::string& content) {
+    safeExecute([this, &fileName, &content]() {
+        std::ofstream file(fileName, std::ios::binary);
+        if (!file) {
+            throw std::runtime_error("无法写入文件: " + fileName);
+        }
+        file << content;
+    });
+}
+
 void FileSystemService::handleException(const std::exception& e) const {
     std::cerr << "FileSystemService error: " << e.what() << std::endl;
 }

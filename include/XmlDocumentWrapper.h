@@ -50,19 +50,24 @@ public:
     std::vector<std::string> getChildIds(const std::string& parentId) const override;
     std::vector<std::pair<std::string, std::string>> getNodeAttributes(const std::string& id) const override;
 
-    // 获取底层文档对象（仅限内部使用，谨慎调用）
+private:
+    // 辅助：创建带id和可选文本的新元素，返回新节点
+    pugi::xml_node createElement(pugi::xml_node parent, const std::string& tagName,
+                                 const std::string& id, const std::string& text,
+                                 bool insertBefore, pugi::xml_node targetNode);
+
+    // 辅助：验证并注册单个节点的ID
+    void registerNodeId(pugi::xml_node node);
+
+    // 重建ID映射（在增删改操作后调用）
+    void rebuildIdMap();
+
+    // 获取底层文档对象（仅限内部使用）
     pugi::xml_document& getPugiDocument();
     const pugi::xml_document& getPugiDocument() const;
 
     // 获取根节点
     pugi::xml_node root() const;
-
-private:
-    // 递归遍历收集ID
-    void traverseForIds(pugi::xml_node node);
-
-    // 重建ID映射（在增删改操作后调用）
-    void rebuildIdMap();
 
     pugi::xml_document doc_;
     bool loaded_;

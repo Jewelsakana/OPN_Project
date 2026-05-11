@@ -3,7 +3,6 @@
 #include <iostream>
 #include <vector>
 #include <string>
-#include <functional>
 
 OutputService::OutputService() {}
 
@@ -90,18 +89,52 @@ void OutputService::outputText(const std::string& text) {
 }
 
 void OutputService::printTreeNode(const TreeNode& node, const std::string& prefix, bool isLast) {
-    // 打印当前节点
     std::cout << prefix;
     std::cout << (isLast ? "└── " : "├── ");
     std::cout << node.name << std::endl;
 
-    // 构建子节点的前缀
     std::string childPrefix = prefix + (isLast ? "    " : "│   ");
 
-    // 递归打印所有子节点
     for (size_t i = 0; i < node.children.size(); ++i) {
         bool childIsLast = (i == node.children.size() - 1);
         printTreeNode(*node.children[i], childPrefix, childIsLast);
+    }
+}
+
+std::string OutputService::formatXmlAttrs(const IXmlDocument& doc, const std::string& id) {
+    auto attrs = doc.getNodeAttributes(id);
+    if (attrs.empty()) return "";
+    std::string result;
+    for (size_t i = 0; i < attrs.size(); ++i) {
+        if (i > 0) result += ", ";
+        result += attrs[i].first + "=\"" + attrs[i].second + "\"";
+    }
+    return " [" + result + "]";
+}
+
+void OutputService::printXmlSubTree(const IXmlDocument& doc, const std::string& id,
+                                    const std::string& prefix, const std::string& indent) {
+    std::string nodeName = doc.getNodeName(id);
+    if (nodeName.empty()) return;
+
+    std::cout << prefix << nodeName << formatXmlAttrs(doc, id) << std::endl;
+
+    std::string text = doc.getNodeValue(id);
+    auto childIds = doc.getChildIds(id);
+    bool hasText = !text.empty();
+    size_t total = childIds.size() + (hasText ? 1 : 0);
+    size_t count = 0;
+
+    for (const auto& childId : childIds) {
+        ++count;
+        bool isLast = (count == total);
+        printXmlSubTree(doc, childId,
+                        indent + (isLast ? "└── " : "├── "),
+                        indent + (isLast ? "    " : "│   "));
+    }
+
+    if (hasText) {
+        std::cout << indent << "└── \"" << text << "\"" << std::endl;
     }
 }
 
@@ -111,69 +144,7 @@ void OutputService::outputXmlTree(const IXmlDocument& doc) {
         outputLine("(empty)");
         return;
     }
-
-    // 构建属性字符串
-    auto formatAttrs = [&](const std::string& id) -> std::string {
-        auto attrs = doc.getNodeAttributes(id);
-        if (attrs.empty()) return "";
-        std::string result;
-        for (size_t i = 0; i < attrs.size(); ++i) {
-            if (i > 0) result += ", ";
-            result += attrs[i].first + "=\"" + attrs[i].second + "\"";
-        }
-        return " [" + result + "]";
-    };
-
-    // 递归打印
-    std::function<void(const std::string&, const std::string&, const std::string&)> printNodeRec;
-    printNodeRec = [&](const std::string& id, const std::string& prefix, const std::string& recursePrefix) {
-        std::string nodeName = doc.getNodeName(id);
-        if (nodeName.empty()) return;
-
-        std::cout << prefix << nodeName << formatAttrs(id) << std::endl;
-
-        std::string text = doc.getNodeValue(id);
-        auto childIds = doc.getChildIds(id);
-
-        bool hasText = !text.empty();
-        size_t totalChildren = childIds.size() + (hasText ? 1 : 0);
-        size_t count = 0;
-
-        for (size_t i = 0; i < childIds.size(); ++i) {
-            ++count;
-            bool isLast = (count == totalChildren);
-            std::string nextPrefix = recursePrefix + (isLast ? "└── " : "├── ");
-            std::string nextRecurse = recursePrefix + (isLast ? "    " : "│   ");
-            printNodeRec(childIds[i], nextPrefix, nextRecurse);
-        }
-
-        if (hasText) {
-            std::string textPrefix = recursePrefix + "└── ";
-            std::cout << textPrefix << "\"" << text << "\"" << std::endl;
-        }
-    };
-
-    // 打印根节点
-    std::string nodeName = doc.getNodeName(rootId);
-    std::cout << nodeName << formatAttrs(rootId) << std::endl;
-
-    std::string text = doc.getNodeValue(rootId);
-    auto childIds = doc.getChildIds(rootId);
-    bool hasText = !text.empty();
-    size_t totalChildren = childIds.size() + (hasText ? 1 : 0);
-    size_t count = 0;
-
-    for (size_t i = 0; i < childIds.size(); ++i) {
-        ++count;
-        bool isLast = (count == totalChildren);
-        printNodeRec(childIds[i],
-                     isLast ? "└── " : "├── ",
-                     isLast ? "    " : "│   ");
-    }
-
-    if (hasText) {
-        std::cout << "└── \"" << text << "\"" << std::endl;
-    }
+    printXmlSubTree(doc, rootId, "", "");
 }
 
 void OutputService::handleException(const std::exception& e) const {

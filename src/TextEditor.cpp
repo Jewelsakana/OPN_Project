@@ -1,6 +1,11 @@
 #include "TextEditor.h"
 #include "TextEngine.h"
 #include "TextCommands.h"
+#include "EditorFactory.h"
+
+namespace {
+    REGISTER_EDITOR(".txt", TextEditor)
+}
 
 TextEditor::TextEditor()
     : modified(false)

@@ -5,6 +5,7 @@
 #include "EditorFactory.h"
 #include "Logger.h"
 #include "EditDurationTracker.h"
+#include "MockSpellChecker.h"
 #include <algorithm>
 #include <stdexcept>
 #include <fstream>
@@ -56,6 +57,8 @@ WorkSpace::WorkSpace()
     , fileCoordinator_(fileSystemService_, documentManager_, outputService_, loggerManager_)
     , logCoordinator_(loggerManager_, outputService_)
     , exitRequested_(false) {
+    // 默认使用 MockSpellChecker，可通过 setSpellChecker 注入其他实现
+    spellChecker_ = std::make_shared<MockSpellChecker>();
     // 创建编辑时长统计器并注册为观察者
     durationTracker_ = std::make_shared<EditDurationTracker>();
     attach(durationTracker_);
@@ -274,6 +277,14 @@ LoggerManager& WorkSpace::getLoggerManager() {
 
 EditDurationTracker* WorkSpace::getEditDurationTracker() const {
     return durationTracker_.get();
+}
+
+void WorkSpace::setSpellChecker(std::shared_ptr<ISpellChecker> checker) {
+    spellChecker_ = std::move(checker);
+}
+
+std::shared_ptr<ISpellChecker> WorkSpace::getSpellChecker() const {
+    return spellChecker_;
 }
 
 bool WorkSpace::hasUnsavedFiles() const {

@@ -21,6 +21,7 @@ public:
     void saveToFile(const std::string& filePath) const override;
     bool isLoaded() const override;
     void clear() override;
+    void initContent(bool withLog) override;
 
     // ID映射（内部管理，验证唯一性）
     void collectIds() override;
@@ -44,6 +45,9 @@ public:
     std::string getNodeXml(const std::string& id) const override;
     std::string getParentId(const std::string& id) const override;
     int getChildIndex(const std::string& id) const override;
+
+    // 拼写检查：提取文本节点内容
+    std::vector<TextSegment> getTextsToCheck() const override;
 
     // xml-tree 遍历
     std::string getRootId() const override;

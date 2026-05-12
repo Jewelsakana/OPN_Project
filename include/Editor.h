@@ -3,7 +3,9 @@
 
 #include <memory>
 #include <string>
+#include <vector>
 #include "CommandParser.h"
+#include "ISpellChecker.h"
 
 // 前向声明
 class Command;
@@ -33,6 +35,11 @@ public:
     // 查询是否已修改
     virtual bool isModified() const { return false; }
     virtual void setModified(bool modified) {}
+
+    // 获取待检查的文本片段列表（用于拼写检查）
+    // TextEditor：每行返回一个 TextSegment
+    // XmlEditor：遍历 XML 树，仅提取可检查的文本节点内容
+    virtual std::vector<TextSegment> getTextsToCheck() const { return {}; }
 };
 
 #endif // EDITOR_H

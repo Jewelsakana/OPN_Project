@@ -147,6 +147,37 @@ void OutputService::outputXmlTree(const IXmlDocument& doc) {
     printXmlSubTree(doc, rootId, "", "");
 }
 
+void OutputService::outputSpellCheckResults(const std::vector<SpellCheckResult>& results) {
+    try {
+        validate();
+
+        if (results.empty()) {
+            std::cout << "拼写检查结果: 未发现拼写错误" << std::endl;
+            return;
+        }
+
+        std::cout << "拼写检查结果:" << std::endl;
+        for (const auto& r : results) {
+            if (!r.elementId.empty()) {
+                // XML 输出格式: 元素 title1: "Itallian" -> 建议: Italian
+                std::cout << "元素 " << r.elementId << ": \"" << r.original << "\" -> 建议: ";
+            } else {
+                // 文本输出格式: 第1行，第5列: "recieve" -> 建议: receive
+                std::cout << "第" << r.line << "行，第" << r.column << "列: \""
+                          << r.original << "\" -> 建议: ";
+            }
+            for (size_t i = 0; i < r.suggestions.size(); ++i) {
+                if (i > 0) std::cout << ", ";
+                std::cout << r.suggestions[i];
+            }
+            std::cout << std::endl;
+        }
+    } catch (const std::exception& e) {
+        handleException(e);
+        throw;
+    }
+}
+
 void OutputService::handleException(const std::exception& e) const {
     // 基础实现：输出到标准错误
     std::cerr << "OutputService error: " << e.what() << std::endl;

@@ -5,6 +5,7 @@
 #include <string>
 #include <stdexcept>
 #include "Model.h"
+#include "ISpellChecker.h"
 
 // 自定义异常类，当TextEngine检测到非法操作时抛出
 class TextEngineException : public std::runtime_error {
@@ -96,6 +97,12 @@ public:
 
     // 辅助方法：分割包含换行符的文本为多行
     std::vector<std::string> splitTextByNewlines(const std::string& text) const;
+
+    // 从行数组中提取待拼写检查的文本片段（跳过空行）
+    std::vector<TextSegment> getTextsToCheck(const std::vector<std::string>& lines) const;
+
+    // 生成初始内容行数组
+    std::vector<std::string> initContent(bool withLog) const;
 
 private:
     // 其他私有辅助方法...

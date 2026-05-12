@@ -3,6 +3,7 @@
 
 #include "Model.h"
 #include "DataStructures.h"
+#include "ISpellChecker.h"
 #include <string>
 #include <vector>
 #include <memory>
@@ -30,6 +31,9 @@ public:
 
     // 输出XML树形结构
     void outputXmlTree(const class IXmlDocument& doc);
+
+    // 输出拼写检查结果
+    void outputSpellCheckResults(const std::vector<SpellCheckResult>& results);
 
 private:
     // 递归打印目录树的辅助函数

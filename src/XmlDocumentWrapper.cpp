@@ -58,6 +58,17 @@ void XmlDocumentWrapper::clear() {
     loaded_ = false;
 }
 
+void XmlDocumentWrapper::initContent(bool withLog) {
+    std::string xmlContent;
+    if (withLog) {
+        xmlContent = "# log\n<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<root id=\"root\">\n</root>\n";
+    } else {
+        xmlContent = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<root id=\"root\">\n</root>\n";
+    }
+    loadFromString(xmlContent);
+    collectIds();
+}
+
 // ---- ID映射实现（内部管理 pugi::xml_node，对外只返回字符串） ----
 
 void XmlDocumentWrapper::collectIds() {
@@ -309,6 +320,26 @@ int XmlDocumentWrapper::getChildIndex(const std::string& id) const {
         }
     }
     return -1;
+}
+
+std::vector<TextSegment> XmlDocumentWrapper::getTextsToCheck() const {
+    std::vector<TextSegment> segments;
+    if (!loaded_) {
+        return segments;
+    }
+
+    for (const auto& pair : idToNodeMap_) {
+        std::string text = pair.second.text().as_string();
+        if (!text.empty()) {
+            TextSegment seg;
+            seg.text      = text;
+            seg.line      = 0;
+            seg.column    = 0;
+            seg.elementId = pair.first;
+            segments.push_back(seg);
+        }
+    }
+    return segments;
 }
 
 std::string XmlDocumentWrapper::getRootId() const {

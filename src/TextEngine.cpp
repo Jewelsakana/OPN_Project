@@ -191,6 +191,30 @@ void TextEngine::deleteText(std::vector<std::string>& lines, int row, int col, i
     currentLine.erase(col, length);
 }
 
+// 生成初始内容行数组
+std::vector<std::string> TextEngine::initContent(bool withLog) const {
+    if (withLog) {
+        return {"# log"};
+    }
+    return {""};
+}
+
+// 从行数组中提取待拼写检查的文本片段
+std::vector<TextSegment> TextEngine::getTextsToCheck(const std::vector<std::string>& lines) const {
+    std::vector<TextSegment> segments;
+    for (size_t i = 0; i < lines.size(); ++i) {
+        if (!lines[i].empty()) {
+            TextSegment seg;
+            seg.text      = lines[i];
+            seg.line      = static_cast<int>(i + 1);  // 1-based
+            seg.column    = 1;
+            seg.elementId = "";
+            segments.push_back(seg);
+        }
+    }
+    return segments;
+}
+
 // 显示字符串
 std::string TextEngine::show(const std::vector<std::string>& lines, int startLine, int endLine) const {
     if (lines.empty()) {

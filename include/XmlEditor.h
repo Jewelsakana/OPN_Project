@@ -54,6 +54,9 @@ public:
     std::string saveToData() const override;
     void initContent(bool withLog) override;
 
+    // 获取待检查的文本片段列表（用于拼写检查，仅提取 Text 节点内容）
+    std::vector<TextSegment> getTextsToCheck() const override;
+
     // 清空编辑器内容
     void clear();
 

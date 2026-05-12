@@ -63,6 +63,9 @@ public:
     // 设置行内容（用于文件加载）
     void setLines(const std::vector<std::string>& newLines);
 
+    // 获取待检查的文本片段列表（用于拼写检查）
+    std::vector<TextSegment> getTextsToCheck() const override;
+
     // 清空编辑器内容
     void clear();
 

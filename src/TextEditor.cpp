@@ -95,12 +95,12 @@ std::string TextEditor::saveToData() const {
 }
 
 void TextEditor::initContent(bool withLog) {
-    if (withLog) {
-        lines = { "# log" };
-    } else {
-        clear();
-    }
+    lines = textEngine->initContent(withLog);
     setModified(true);
+}
+
+std::vector<TextSegment> TextEditor::getTextsToCheck() const {
+    return textEngine->getTextsToCheck(lines);
 }
 
 void TextEditor::clear() {

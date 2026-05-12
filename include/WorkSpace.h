@@ -22,6 +22,7 @@
 #include "FileCoordinator.h"
 #include "EditorCoordinator.h"
 #include "LogCoordinator.h"
+#include "ISpellChecker.h"
 
 class LoggerManager;
 class EditDurationTracker;
@@ -113,6 +114,10 @@ public:
     LoggerManager& getLoggerManager();
     class EditDurationTracker* getEditDurationTracker() const;
 
+    // 拼写检查服务（依赖注入：可从外部注入不同实现，默认使用 MockSpellChecker）
+    void setSpellChecker(std::shared_ptr<ISpellChecker> checker);
+    std::shared_ptr<ISpellChecker> getSpellChecker() const;
+
     // 检查未保存文件（委托给EditorCoordinator）
     bool hasUnsavedFiles() const;
 
@@ -141,6 +146,9 @@ private:
 
     // 横切功能：编辑时长统计
     std::shared_ptr<EditDurationTracker> durationTracker_;
+
+    // 拼写检查服务（可注入）
+    std::shared_ptr<ISpellChecker> spellChecker_;
 
     // 状态变量
     bool exitRequested_;

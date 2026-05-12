@@ -78,7 +78,8 @@ enum class WorkSpaceCommandType {
     Exit,
     Logon,
     Logoff,
-    Logshow
+    Logshow,
+    SpellCheck
 };
 
 // 编辑器命令解析结果

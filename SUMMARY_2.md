@@ -367,3 +367,100 @@
   - `WorkSpace` — 只负责协调文件关闭，不直接操作观察者
   - `EditDurationTracker` — 通过 Observer update() 自主判断 close 事件，实现完全的事件驱动
   - `CommandController` — 统一的 Event 通知入口
+
+---
+
+## 第五阶段：拼写检查模块（设计24）
+
+### 24. 拼写检查命令 `spell-check`
+
+- **格式**: `spell-check [file]`
+  - 不指定参数：检查当前活动文件
+  - `file`：检查指定文本文件
+- **功能**: 检查文本文件和 XML 文件中的拼写错误
+- **只读**: isReadOnly() 返回 true，不进入撤销栈
+
+### 适配器模式设计
+
+- **目标接口**: `ISpellChecker` — `checkText(TextSegment) → vector<SpellCheckResult>`
+- **Mock 适配器**: `MockSpellChecker` — 27 条内置常见拼写错误映射表，支持大小写不敏感匹配
+- **HTTP 适配器骨架**: `HttpSpellCheckerAdapter` — 预留 LanguageTool API (https://dev.languagetool.org/public-http-api) 调用结构
+- **依赖注入**: 通过 `WorkSpace::setSpellChecker()` 注入不同实现，编辑器和命令仅依赖 `ISpellChecker` 接口
+- **数据流**: Editor::getTextsToCheck() → TextSegment 列表 → ISpellChecker::checkText() → SpellCheckResult 列表 → OutputService::outputSpellCheckResults()
+
+### 数据结构
+
+- **TextSegment**: 待检查文本片段，包含 text / line / column / elementId
+- **SpellCheckResult**: 统一结果结构体，包含 line / column / elementId / original / suggestions
+
+### Editor 多态
+
+- **Editor 基类**: 新增 `getTextsToCheck()` 虚函数，默认返回空列表
+- **TextEditor**: 每行创建一个 TextSegment（跳过空行），line 为行号，column 固定为 1
+- **XmlEditor**: 遍历所有元素 ID，提取 `getNodeValue(id)` 非空的文本内容，elementId 为元素 ID，line/column 为 0
+
+### 输出格式
+
+- **文本文件**: `第1行，第5列: "recieve" -> 建议: receive`
+- **XML 文件**: `元素 title1: "Itallian" -> 建议: Italian`
+- **无错误**: `拼写检查结果: 未发现拼写错误`
+
+### 命令注册链路
+
+1. `WorkSpaceCommandType::SpellCheck` 枚举值（CommandParser.h）
+2. `SpellCheckParser` 策略类（CommandParserStrategy.h/.cpp）
+3. `registerStrategies()` 注册（CommandParser.cpp）
+4. `REGISTER_WS_CMD_FILENAME` 自注册宏（SpellCheckCommand.cpp）
+
+### 新增文件
+
+| 文件 | 说明 |
+|------|------|
+| `include/ISpellChecker.h` | 适配器接口 + TextSegment + SpellCheckResult |
+| `include/MockSpellChecker.h` | Mock 适配器类声明 |
+| `src/MockSpellChecker.cpp` | Mock 实现（单词拆分 + 字典查找） |
+| `include/HttpSpellCheckerAdapter.h` | HTTP 适配器骨架声明 |
+| `src/HttpSpellCheckerAdapter.cpp` | HTTP 适配器骨架实现 |
+| `include/SpellCheckCommand.h` | 拼写检查命令类 |
+| `src/SpellCheckCommand.cpp` | 命令实现 + 工厂自注册 |
+| `tests/test_spell_check.cpp` | 14 项自动化测试 |
+
+### 修改文件
+
+| 文件 | 变更类型 | 说明 |
+|------|---------|------|
+| `include/Editor.h` | 修改 | 新增 `getTextsToCheck()` 虚函数 |
+| `include/TextEditor.h` | 修改 | 新增 `getTextsToCheck()` 声明 |
+| `src/TextEditor.cpp` | 修改 | 实现 `getTextsToCheck()`（每行一个 TextSegment） |
+| `include/XmlEditor.h` | 修改 | 新增 `getTextsToCheck()` 声明 |
+| `src/XmlEditor.cpp` | 修改 | 实现 `getTextsToCheck()`（遍历提取文本节点） |
+| `include/CommandParser.h` | 修改 | 枚举新增 `SpellCheck` |
+| `include/CommandParserStrategy.h` | 修改 | 新增 `SpellCheckParser` 类声明 |
+| `src/CommandParserStrategy.cpp` | 修改 | 实现 `SpellCheckParser` |
+| `src/CommandParser.cpp` | 修改 | `registerStrategies()` 注册 SpellCheckParser |
+| `include/OutputService.h` | 修改 | 新增 `outputSpellCheckResults()` 声明 |
+| `src/OutputService.cpp` | 修改 | 实现 `outputSpellCheckResults()`（文本/XML 双格式） |
+| `include/WorkSpace.h` | 修改 | 新增 `spellChecker_` 成员 + getter/setter |
+| `src/WorkSpace.cpp` | 修改 | 初始化 MockSpellChecker，实现 getter/setter |
+
+### 设计要点
+
+1. **适配器模式**: 第三方库依赖被限制在 ISpellChecker 适配器内，编辑器依赖接口而非具体实现
+2. **依赖注入**: 通过 WorkSpace 的 setSpellChecker/getSpellChecker 从外部注入，Mock 对象可替代真实服务进行测试
+3. **统一结果结构体**: SpellCheckResult 由适配器返回，OutputService 统一输出，支持文本和 XML 两种位置格式
+4. **Editor 多态获取文本**: 基类定义 getTextsToCheck() 虚函数，TextEditor 和 XmlEditor 各自实现，XML 过滤标签名仅保留文本内容
+5. **预留 HTTP 适配器**: HttpSpellCheckerAdapter 骨架已创建，包含 API URL 配置、请求构建和响应解析方法签名
+6. **产品无关**: 不绑定 LanguageTool 或其他特定产品，通过 ISpellChecker 接口可接入任意拼写检查服务
+
+### 测试覆盖
+
+- MockSpellChecker 基本功能（检测、忽略、多错误）
+- MockSpellChecker 大小写不敏感匹配
+- ISpellChecker 接口可替换性（适配器模式验证）
+- HttpSpellCheckerAdapter 骨架结构验证
+- TextEditor::getTextsToCheck() 正确性（含空行过滤）
+- XmlEditor::getTextsToCheck() 正确性（标签过滤、文本提取）
+- OutputService 输出格式化（文本/XML/空结果）
+- SpellCheckCommand + WorkSpace DI 集成
+- CommandParser 解析（无参数 / 带文件名）
+- CommandFactory 创建验证

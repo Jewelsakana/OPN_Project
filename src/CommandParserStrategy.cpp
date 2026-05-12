@@ -354,3 +354,15 @@ ParsedCommand XmlTreeParser::parse(const std::string&, const std::vector<std::st
     return parsed;
 }
 
+// === 拼写检查命令策略 ===
+
+std::string SpellCheckParser::getCommandName() const { return "spell-check"; }
+
+ParsedCommand SpellCheckParser::parse(const std::string&, const std::vector<std::string>& tokens) {
+    auto parsed = makeWorkSpace(WorkSpaceCommandType::SpellCheck);
+    if (tokens.size() > 1) {
+        parsed.asWorkSpace()->fileName = tokens[1];
+    }
+    return parsed;
+}
+

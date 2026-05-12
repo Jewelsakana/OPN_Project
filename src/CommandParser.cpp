@@ -37,6 +37,8 @@ void CommandParser::registerStrategies() {
     strategies_.push_back(std::make_unique<EditIdParser>());
     strategies_.push_back(std::make_unique<EditTextParser>());
     strategies_.push_back(std::make_unique<XmlTreeParser>());
+    // 拼写检查命令解析器
+    strategies_.push_back(std::make_unique<SpellCheckParser>());
 }
 
 ParsedCommand CommandParser::parse(const std::string& commandString) {

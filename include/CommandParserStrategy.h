@@ -188,6 +188,13 @@ public:
                         const std::vector<std::string>& tokens) override;
 };
 
+class SpellCheckParser : public ICommandParserStrategy {
+public:
+    std::string getCommandName() const override;
+    ParsedCommand parse(const std::string& commandName,
+                        const std::vector<std::string>& tokens) override;
+};
+
 class XmlTreeParser : public ICommandParserStrategy {
 public:
     std::string getCommandName() const override;

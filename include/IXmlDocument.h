@@ -5,6 +5,7 @@
 #include <vector>
 #include <utility>
 #include <stdexcept>
+#include "ISpellChecker.h"
 
 // XML文档异常基类
 class XmlDocumentException : public std::runtime_error {
@@ -53,6 +54,9 @@ public:
     virtual bool isLoaded() const = 0;
     virtual void clear() = 0;
 
+    // 初始化文档内容
+    virtual void initContent(bool withLog) = 0;
+
     // ID映射：收集所有节点ID（验证唯一性）
     virtual void collectIds() = 0;
 
@@ -77,6 +81,9 @@ public:
     virtual std::string getNodeXml(const std::string& id) const = 0;
     virtual std::string getParentId(const std::string& id) const = 0;
     virtual int getChildIndex(const std::string& id) const = 0;
+
+    // 供拼写检查使用：提取所有元素的文本内容（过滤标签名，仅保留 Text 节点内容）
+    virtual std::vector<TextSegment> getTextsToCheck() const = 0;
 
     // 供 xml-tree 遍历使用
     virtual std::string getRootId() const = 0;

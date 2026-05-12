@@ -117,14 +117,12 @@ std::string XmlEditor::saveToData() const {
 }
 
 void XmlEditor::initContent(bool withLog) {
-    std::string xmlContent;
-    if (withLog) {
-        xmlContent = "# log\n<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<root id=\"root\">\n</root>\n";
-    } else {
-        xmlContent = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<root id=\"root\">\n</root>\n";
-    }
-    loadFromString(xmlContent);
+    document_->initContent(withLog);
     setModified(true);
+}
+
+std::vector<TextSegment> XmlEditor::getTextsToCheck() const {
+    return document_->getTextsToCheck();
 }
 
 void XmlEditor::clear() {

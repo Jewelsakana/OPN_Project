@@ -24,6 +24,7 @@
 #include "LogCoordinator.h"
 
 class LoggerManager;
+class EditDurationTracker;
 
 // WorkspaceMemento类：用于保存和恢复工作区状态
 class WorkspaceMemento {
@@ -110,6 +111,7 @@ public:
     FileSystemService& getFileSystemService();
     OutputService& getOutputService();
     LoggerManager& getLoggerManager();
+    class EditDurationTracker* getEditDurationTracker() const;
 
     // 检查未保存文件（委托给EditorCoordinator）
     bool hasUnsavedFiles() const;
@@ -136,6 +138,9 @@ private:
     EditorCoordinator editorCoordinator_;
     FileCoordinator fileCoordinator_;
     LogCoordinator logCoordinator_;
+
+    // 横切功能：编辑时长统计
+    std::shared_ptr<EditDurationTracker> durationTracker_;
 
     // 状态变量
     bool exitRequested_;

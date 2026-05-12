@@ -20,24 +20,25 @@ void testLoggerManagerBasic() {
     // 测试初始状态
     assert(manager.getLoggerCount() == 0);
     assert(manager.getLoggedFiles().empty());
-    assert(workspace.getObserverCount() == 0);
+    // 初始状态：1个时长统计器观察者始终存在
+    assert(workspace.getObserverCount() == 1);
 
     // 启动日志记录
     manager.startLoggingForFile("test1.txt");
     assert(manager.getLoggerCount() == 1);
     assert(manager.isLoggingForFile("test1.txt"));
-    assert(workspace.getObserverCount() == 1);
+    assert(workspace.getObserverCount() == 2);
 
     // 重复启动应该无变化
     manager.startLoggingForFile("test1.txt");
     assert(manager.getLoggerCount() == 1);
-    assert(workspace.getObserverCount() == 1); // 观察者不应重复添加
+    assert(workspace.getObserverCount() == 2); // 观察者不应重复添加
 
     // 启动另一个文件的日志
     manager.startLoggingForFile("test2.txt");
     assert(manager.getLoggerCount() == 2);
     assert(manager.isLoggingForFile("test2.txt"));
-    assert(workspace.getObserverCount() == 2);
+    assert(workspace.getObserverCount() == 3);
 
     // 获取已记录的文件列表
     auto files = manager.getLoggedFiles();
@@ -50,17 +51,17 @@ void testLoggerManagerBasic() {
     assert(manager.getLoggerCount() == 1);
     assert(!manager.isLoggingForFile("test1.txt"));
     assert(manager.isLoggingForFile("test2.txt"));
-    assert(workspace.getObserverCount() == 1);
+    assert(workspace.getObserverCount() == 2);
 
     // 停止不存在的文件应该无影响
     manager.stopLoggingForFile("nonexistent.txt");
     assert(manager.getLoggerCount() == 1);
-    assert(workspace.getObserverCount() == 1);
+    assert(workspace.getObserverCount() == 2);
 
     // 清理
     manager.stopLoggingForFile("test2.txt");
     assert(manager.getLoggerCount() == 0);
-    assert(workspace.getObserverCount() == 0);
+    assert(workspace.getObserverCount() == 1);
 
     std::cout << "LoggerManager basic test passed." << std::endl;
 }
@@ -111,7 +112,7 @@ void testLoggerManagerFileIntegration() {
     // 停止日志记录
     manager.stopLoggingForFile("integration.txt");
     assert(manager.getLoggerCount() == 0);
-    assert(workspace.getObserverCount() == 0);
+    assert(workspace.getObserverCount() == 1);
 
     std::cout << "File integration test passed." << std::endl;
 

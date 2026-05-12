@@ -207,10 +207,14 @@ ParsedCommand EditParser::parse(const std::string&, const std::vector<std::strin
 std::string EditorListParser::getCommandName() const { return "editor-list"; }
 
 ParsedCommand EditorListParser::parse(const std::string&, const std::vector<std::string>& tokens) {
-    if (tokens.size() != 1) {
-        throw CommandFormatException("editor-list", "editor-list");
+    auto parsed = makeWorkSpace(WorkSpaceCommandType::EditorList);
+    if (tokens.size() > 1) {
+        if (StringUtils::toLower(tokens[1]) != "tree") {
+            throw ArgumentParseException(tokens[1], "Expected 'tree' or nothing");
+        }
+        parsed.asWorkSpace()->target = tokens[1];  // "tree"
     }
-    return makeWorkSpace(WorkSpaceCommandType::EditorList);
+    return parsed;
 }
 
 std::string DirTreeParser::getCommandName() const { return "dir-tree"; }

@@ -33,4 +33,33 @@ std::string toLower(const std::string& str) {
     return result;
 }
 
+std::string formatDuration(int totalSeconds) {
+    if (totalSeconds < 0) totalSeconds = 0;
+
+    if (totalSeconds < 60) {
+        return std::to_string(totalSeconds) + "秒";
+    }
+
+    int minutes = totalSeconds / 60;
+    if (minutes < 60) {
+        return std::to_string(minutes) + "分钟";
+    }
+
+    int hours = minutes / 60;
+    minutes = minutes % 60;
+    if (hours < 24) {
+        if (minutes > 0) {
+            return std::to_string(hours) + "小时" + std::to_string(minutes) + "分钟";
+        }
+        return std::to_string(hours) + "小时";
+    }
+
+    int days = hours / 24;
+    hours = hours % 24;
+    if (hours > 0) {
+        return std::to_string(days) + "天" + std::to_string(hours) + "小时";
+    }
+    return std::to_string(days) + "天";
+}
+
 } // namespace StringUtils

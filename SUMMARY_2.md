@@ -267,3 +267,103 @@
   - `initFile`: 移除 `!isXml` 守卫，`if (withLog)` 直接启动日志
   - `loadFile`: 移除 `!isXml` 守卫，检测到 `# log` 头即启动日志
   - pugixml 可容忍 `# log` 文本在 XML 声明之前（作为文档级 PCDATA 节点），root 元素仍正常解析
+
+---
+
+## 第四阶段：统计模块（设计23）
+
+### 18. 编辑时长统计器 (EditDurationTracker)
+- **模式**: 观察者模式——EditDurationTracker 实现 Observe 接口，通过 `update(Event&)` 接收命令事件检测文件切换
+- **计时规则**:
+  - 开始计时：文件成为活动文件时（Observer 检测目标文件名变化）
+  - 停止计时：切换到其他文件时（记录前一个文件的累计时长）
+  - 累计时长：每次切换时累加，同一会话中反复切换会累计
+  - 重置时长：文件关闭时通过 Observer update() 检测 close 命令自动清除记录
+- **实现要点**:
+  - 使用 `std::chrono::steady_clock` 计时，精度为秒
+  - `update()` 通过事件目标文件名检测文件切换，自动记录上一个文件的时长
+  - `getDurationSeconds()` 对当前活动文件实时计算（当前时间 - 上次 tick）
+  - 所有方法 try-catch 保护，失败仅输出警告不抛异常
+  - `reset()` 清除所有跟踪数据（新会话时使用）
+
+### 19. 时长格式化 (StringUtils::formatDuration)
+- **新增方法**: `StringUtils::formatDuration(int totalSeconds) → string`
+- **显示规则**:
+  - `< 1分钟` → "X秒"
+  - `1-59分钟` → "X分钟"
+  - `1-23小时` → "X小时Y分钟"（0分钟时省略分钟）
+  - `≥ 24小时` → "X天Y小时"（0小时时省略小时）
+  - 负数处理：按 0 秒处理
+
+### 20. editor-list 命令增强
+- **格式变化**: `editor-list [tree]`
+  - 无参数：列表形式显示（带时长装饰）
+  - `tree`：树形格式显示（使用 OutputService::outputTree）
+- **装饰器模式**: 通过 lambda `decorateWithDuration` 为每个文件名附加时长信息，格式为 `filename (X分钟)`
+- **解析器改动**: EditorListParser 接受可选 `tree` 参数，校验非 tree 参数时抛出异常
+- **注册改动**: EditorListCommand 从 `REGISTER_WS_CMD_NOARGS` 改为 `REGISTER_WS_CMD_TARGET`
+
+### 21. WorkSpace 集成
+- **创建**: WorkSpace 构造函数中创建 EditDurationTracker 实例并 attach 为观察者
+- **通知**: CommandController::parseAndExecuteCommand 中的 `workspace_->notify(event)` 自动触发 tracker 的 update
+- **关闭**: EditDurationTracker::update() 通过检测事件中的 "close" 命令自主处理文件关闭，无需 WorkSpace 显式调用
+
+### 新增/修改文件 (第四阶段)
+
+| 文件 | 变更类型 | 说明 |
+|------|---------|------|
+| `include/EditDurationTracker.h` | 新增 | 编辑时长统计器类声明 |
+| `src/EditDurationTracker.cpp` | 新增 | 实现 update/onFileOpened/onFileClosed/getDurationSeconds |
+| `include/StringUtils.h` | 修改 | 新增 formatDuration 方法声明 |
+| `src/StringUtils.cpp` | 修改 | 实现秒到可读字符串的转换 |
+| `include/WorkSpace.h` | 修改 | 新增 durationTracker_ 成员和 getter |
+| `src/WorkSpace.cpp` | 修改 | 创建 tracker、attach 观察者、closeFile 集成 |
+| `include/WorkSpaceCommand.h` | 修改 | EditorListCommand 新增 treeMode_ |
+| `src/WorkSpaceCommand.cpp` | 修改 | 实现时长装饰 + tree 模式 |
+| `src/CommandParserStrategy.cpp` | 修改 | EditorListParser 接受可选 tree 参数 |
+| `tests/test_edit_duration.cpp` | 新增 | 9 组测试（formatDuration/tracker/editor-list/observer） |
+| `tests/test_loggermanager.cpp` | 修改 | 调整 observerCount 断言（+1 永久时长统计器） |
+
+### 设计要点 (第四阶段)
+
+1. **横切功能解耦**: EditDurationTracker 是独立的统计模块，通过 Observer 接口与核心系统通信，不与编辑器耦合
+2. **观察者模式**: 通过 Event 目标文件名检测文件切换来驱动计时，无需显式的"开始/停止计时"调用
+3. **容错设计**: 所有 tracker 方法用 try-catch 保护，统计失败仅输出 cerr 警告，不影响主功能
+4. **装饰器模式**: 创建 EditDurationDecorator 类专门负责输出装饰，将"格式化时长"和"字符串拼接"从命令类中解耦
+5. **纯观察者驱动**: 所有计时操作（文件切换、关闭）均由 Observer update() 通过事件内容检测自主完成，WorkSpace 无需直接调用 tracker 方法
+
+### 22. 装饰器解耦 (EditDurationDecorator)
+- **问题**: EditorListCommand 中硬编码了"如何格式化时长"和"如何拼接字符串"的 lambda 逻辑，命令类承担了装饰职责，违反单一职责原则
+- **修改**:
+  - 新建 `EditDurationDecorator` 类，专门负责输出装饰
+  - `decorateFileName(fileName)` — 为文件名附加时长信息
+  - `decorateFileInfo(info)` — 装饰 FileInfo（列表模式）
+  - `decorateFileNode(info)` — 创建装饰后的 TreeNode（树形模式）
+  - `appendStatusMarks(name, isActive, isModified)` — 附加 `[*]`/`[+]` 状态标记
+  - EditorListCommand::execute 从 ~30 行缩减为 ~12 行，仅负责调取文件列表→创建装饰器→委派输出
+- **职责分离**:
+  - `StringUtils::formatDuration` — 时长格式化（秒→字符串）
+  - `EditDurationTracker` — 时长数据查询
+  - `EditDurationDecorator` — 装饰逻辑组合（字符串拼接）
+  - `EditorListCommand` — 命令编排（调用装饰器 + 输出）
+
+### 修改文件 (装饰器解耦)
+
+| 文件 | 变更类型 | 说明 |
+|------|---------|------|
+| `include/EditDurationDecorator.h` | 新增 | 装饰器类声明 |
+| `src/EditDurationDecorator.cpp` | 新增 | 实现装饰逻辑 |
+| `src/WorkSpaceCommand.cpp` | 修改 | 移除 lambda，委托 EditDurationDecorator |
+
+### 23. 观察者模式修正 (closeFile 通知链路)
+
+- **问题**: `WorkSpace::closeFile` 直接调用 `durationTracker_->onFileClosed(fileName)`，绕过了 Observer 通知机制，违反了观察者模式的统一通知原则
+- **修改**:
+  - `EditDurationTracker::update()` 现在通过 `StringUtils::toLower(cmd)` + `StringUtils::startsWith(cmd, "close")` 检测 close 命令事件
+  - 当检测到 close 命令时，自动调用内部的 `onFileClosed` 逻辑（记录时长 + 移除跟踪）
+  - `WorkSpace::closeFile` 中移除直接调用 `durationTracker_->onFileClosed(fileName)`，close 事件完全由 CommandController → Event → Observer 通知链路触发
+  - `onFileOpened`/`onFileClosed` 仍保留为 public 方法供测试使用
+- **职责分离**:
+  - `WorkSpace` — 只负责协调文件关闭，不直接操作观察者
+  - `EditDurationTracker` — 通过 Observer update() 自主判断 close 事件，实现完全的事件驱动
+  - `CommandController` — 统一的 Event 通知入口

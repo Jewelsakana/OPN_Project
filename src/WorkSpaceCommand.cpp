@@ -3,6 +3,8 @@
 #include "TextEditor.h"
 #include "OutputService.h"
 #include "CommandFactory.h"
+#include "EditDurationTracker.h"
+#include "EditDurationDecorator.h"
 #include <iostream>
 #include <vector>
 #include <algorithm>
@@ -14,7 +16,7 @@ namespace {
     REGISTER_WS_CMD_INIT(WorkSpaceCommandType::Init, InitCommand)
     REGISTER_WS_CMD_FILENAME(WorkSpaceCommandType::Close, CloseCommand)
     REGISTER_WS_CMD_REQ_FILENAME(WorkSpaceCommandType::Edit, EditCommand)
-    REGISTER_WS_CMD_NOARGS(WorkSpaceCommandType::EditorList, EditorListCommand)
+    REGISTER_WS_CMD_TARGET(WorkSpaceCommandType::EditorList, EditorListCommand)
     REGISTER_WS_CMD_PATH(WorkSpaceCommandType::DirTree, DirTreeCommand)
     REGISTER_WS_CMD_NOARGS(WorkSpaceCommandType::Undo, UndoCommand)
     REGISTER_WS_CMD_NOARGS(WorkSpaceCommandType::Redo, RedoCommand)
@@ -189,24 +191,38 @@ bool EditCommand::isReadOnly() const {
 }
 
 // EditorListCommand实现
-EditorListCommand::EditorListCommand() {}
+EditorListCommand::EditorListCommand(const std::string& mode)
+    : treeMode_(mode == "tree") {
+}
 
 void EditorListCommand::execute() {
     checkWorkSpace();
 
-    // 获取结构化文件信息列表
     auto fileInfos = workspace_->getFileInfoList();
+    EditDurationDecorator decorator(workspace_->getEditDurationTracker());
 
-    workspace_->outputList(fileInfos);
+    if (treeMode_) {
+        auto root = std::make_shared<TreeNode>("Open Files", true);
+        for (const auto& info : fileInfos) {
+            root->children.push_back(decorator.decorateFileNode(info));
+        }
+        workspace_->outputTree(*root);
+    } else {
+        std::vector<FileInfo> decoratedInfos;
+        decoratedInfos.reserve(fileInfos.size());
+        for (const auto& info : fileInfos) {
+            decoratedInfos.push_back(decorator.decorateFileInfo(info));
+        }
+        workspace_->outputList(decoratedInfos);
+    }
 }
 
 void EditorListCommand::undo() {
     std::cout << "EditorListCommand: Undo listing (nothing to undo)" << std::endl;
-    // 显示列表是只读操作，不需要真正的撤销
 }
 
 bool EditorListCommand::isReadOnly() const {
-    return true; // 显示列表是只读操作
+    return true;
 }
 
 // DirTreeCommand实现

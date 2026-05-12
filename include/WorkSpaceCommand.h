@@ -92,10 +92,12 @@ private:
 // 显示文件列表命令
 class EditorListCommand : public WorkSpaceCommand {
 public:
-    EditorListCommand();
+    explicit EditorListCommand(const std::string& mode = "");
     void execute() override;
     void undo() override;
     bool isReadOnly() const override;
+private:
+    bool treeMode_;
 };
 
 // 显示目录树命令

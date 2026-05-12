@@ -4,6 +4,7 @@
 #include "XmlEditor.h"
 #include "EditorFactory.h"
 #include "Logger.h"
+#include "EditDurationTracker.h"
 #include <algorithm>
 #include <stdexcept>
 #include <fstream>
@@ -55,6 +56,9 @@ WorkSpace::WorkSpace()
     , fileCoordinator_(fileSystemService_, documentManager_, outputService_, loggerManager_)
     , logCoordinator_(loggerManager_, outputService_)
     , exitRequested_(false) {
+    // 创建编辑时长统计器并注册为观察者
+    durationTracker_ = std::make_shared<EditDurationTracker>();
+    attach(durationTracker_);
     // 注入编辑器工厂（根据扩展名创建对应编辑器）
     fileCoordinator_.setEditorFactory([this](const std::string& ext) { return createEditorForExtension(ext); });
     loadConfig(".editor_config");
@@ -266,6 +270,10 @@ OutputService& WorkSpace::getOutputService() {
 
 LoggerManager& WorkSpace::getLoggerManager() {
     return loggerManager_;
+}
+
+EditDurationTracker* WorkSpace::getEditDurationTracker() const {
+    return durationTracker_.get();
 }
 
 bool WorkSpace::hasUnsavedFiles() const {

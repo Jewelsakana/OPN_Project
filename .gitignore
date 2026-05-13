@@ -4,3 +4,4 @@ build/
 *.txt
 *.xml
 *.log
+*.editor_config

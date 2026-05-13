@@ -94,13 +94,13 @@ std::string HttpClient::post(const std::string& url, const std::string& body,
     }
 
     std::wstring headers = toWide("Content-Type: " + contentType + "\r\n");
-    std::wstring bodyWide = toWide(body);
 
+    // lpOptional 是 LPVOID，直接传原始字节即可，无需转宽字符
     BOOL result = WinHttpSendRequest(hRequest, headers.c_str(),
                                       static_cast<DWORD>(headers.size()),
-                                      const_cast<wchar_t*>(bodyWide.c_str()),
-                                      static_cast<DWORD>(bodyWide.size() * sizeof(wchar_t)),
-                                      static_cast<DWORD>(bodyWide.size() * sizeof(wchar_t)), 0);
+                                      (LPVOID)body.c_str(),
+                                      static_cast<DWORD>(body.size()),
+                                      static_cast<DWORD>(body.size()), 0);
     if (!result) {
         WinHttpCloseHandle(hRequest);
         WinHttpCloseHandle(hConnect);

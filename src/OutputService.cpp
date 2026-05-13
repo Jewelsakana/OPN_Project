@@ -81,7 +81,7 @@ void OutputService::outputLine(const std::string& message) {
 void OutputService::outputText(const std::string& text) {
     try {
         validate();
-        std::cout << text;
+        std::cout << text << std::endl;
     } catch (const std::exception& e) {
         handleException(e);
         throw;

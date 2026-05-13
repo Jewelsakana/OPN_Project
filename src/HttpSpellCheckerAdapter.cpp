@@ -82,7 +82,17 @@ void parseResponseBody(const std::string& json, const TextSegment& segment,
     if (arrayStart == std::string::npos) return;
 
     size_t pos = json.find('{', arrayStart);
-    size_t arrayEnd = json.find(']', arrayStart);
+
+    // 使用深度追踪找到匹配的 ']'，处理 match 对象内部的嵌套数组（如 replacements）
+    size_t arrayEnd = arrayStart;
+    int bracketDepth = 0;
+    for (size_t i = arrayStart; i < json.size(); ++i) {
+        if (json[i] == '[') ++bracketDepth;
+        else if (json[i] == ']') {
+            --bracketDepth;
+            if (bracketDepth == 0) { arrayEnd = i; break; }
+        }
+    }
 
     while (pos != std::string::npos && pos < arrayEnd) {
         int depth = 0;

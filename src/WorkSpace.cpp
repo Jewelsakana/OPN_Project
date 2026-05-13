@@ -164,6 +164,12 @@ void WorkSpace::restoreOpenFiles(const WorkspaceMemento& memento) {
             ext = fileName.substr(dotPos);
         }
         auto editor = createEditorForExtension(ext);
+        // 从磁盘读取文件内容填充编辑器（FileCoordinator::loadFile 做这件事，
+        // 但 restore 时直接走 DocumentManager，绕过了 FileCoordinator）
+        if (fileSystemService_.fileExists(fileName)) {
+            std::string content = fileSystemService_.readFileContent(fileName);
+            editor->loadFromData(content);
+        }
         editorCoordinator_.openFile(fileName, editor);
     }
 }

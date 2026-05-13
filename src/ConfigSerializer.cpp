@@ -5,6 +5,24 @@
 #include <iostream>
 #include <sstream>
 
+// ConfigData 转 WorkspaceMemento
+std::shared_ptr<WorkspaceMemento> ConfigData::toMemento() const {
+    return std::make_shared<WorkspaceMemento>(openFiles, activeFileName,
+                                               fileModifiedStates, logEnabled,
+                                               loggedFiles, spellCheckerProduct);
+}
+
+// 辅助：将字符串列表序列化为逗号分隔值
+void ConfigSerializer::writeCommaSeparatedList(std::ofstream& file, const std::string& key,
+                                                const std::vector<std::string>& items) {
+    file << key << ":";
+    for (size_t i = 0; i < items.size(); ++i) {
+        file << items[i];
+        if (i != items.size() - 1) file << ",";
+    }
+    file << "\n";
+}
+
 void ConfigSerializer::saveConfig(const std::string& fileName, const WorkspaceMemento& memento) {
     safeExecute([this, &fileName, &memento]() {
         std::ofstream file(fileName);
@@ -12,13 +30,7 @@ void ConfigSerializer::saveConfig(const std::string& fileName, const WorkspaceMe
             throw std::runtime_error("Unable to write config file: " + fileName);
         }
 
-        const auto& openFiles = memento.getOpenFiles();
-        file << "openFiles:";
-        for (size_t i = 0; i < openFiles.size(); ++i) {
-            file << openFiles[i];
-            if (i != openFiles.size() - 1) file << ",";
-        }
-        file << "\n";
+        writeCommaSeparatedList(file, "openFiles", memento.getOpenFiles());
 
         file << "activeFileName: " << memento.getActiveFileName() << "\n";
 
@@ -33,34 +45,26 @@ void ConfigSerializer::saveConfig(const std::string& fileName, const WorkspaceMe
 
         file << "logEnabled: " << (memento.isLogEnabled() ? "true" : "false") << "\n";
 
-        const auto& loggedFiles = memento.getLoggedFiles();
-        file << "loggedFiles:";
-        for (size_t i = 0; i < loggedFiles.size(); ++i) {
-            file << loggedFiles[i];
-            if (i != loggedFiles.size() - 1) file << ",";
-        }
-        file << "\n";
+        writeCommaSeparatedList(file, "loggedFiles", memento.getLoggedFiles());
+
+        file << "spellCheckerProduct: " << memento.getSpellCheckerProduct() << "\n";
 
         file.close();
     });
 }
 
 void ConfigSerializer::parseConfigLine(const std::string& key, const std::string& value,
-                                        std::vector<std::string>& openFiles,
-                                        std::string& activeFileName,
-                                        std::map<std::string, bool>& fileModifiedStates,
-                                        bool& logEnabled,
-                                        std::vector<std::string>& loggedFiles) {
+                                        ConfigData& data) {
     if (key == "openFiles") {
         if (!value.empty()) {
             auto files = StringUtils::splitString(value, ',');
             for (const auto& f : files) {
                 std::string trimmed = StringUtils::trim(f);
-                if (!trimmed.empty()) openFiles.push_back(trimmed);
+                if (!trimmed.empty()) data.openFiles.push_back(trimmed);
             }
         }
     } else if (key == "activeFileName") {
-        activeFileName = value;
+        data.activeFileName = value;
     } else if (key == "fileModifiedStates") {
         if (!value.empty()) {
             auto pairs = StringUtils::splitString(value, ',');
@@ -70,20 +74,22 @@ void ConfigSerializer::parseConfigLine(const std::string& key, const std::string
                 if (eqPos != std::string::npos) {
                     std::string fk = StringUtils::trim(trimmed.substr(0, eqPos));
                     std::string bv = StringUtils::trim(trimmed.substr(eqPos + 1));
-                    fileModifiedStates[fk] = (bv == "true");
+                    data.fileModifiedStates[fk] = (bv == "true");
                 }
             }
         }
     } else if (key == "logEnabled") {
-        logEnabled = (value == "true");
+        data.logEnabled = (value == "true");
     } else if (key == "loggedFiles") {
         if (!value.empty()) {
             auto files = StringUtils::splitString(value, ',');
             for (const auto& f : files) {
                 std::string trimmed = StringUtils::trim(f);
-                if (!trimmed.empty()) loggedFiles.push_back(trimmed);
+                if (!trimmed.empty()) data.loggedFiles.push_back(trimmed);
             }
         }
+    } else if (key == "spellCheckerProduct") {
+        data.spellCheckerProduct = value;
     }
 }
 
@@ -94,11 +100,7 @@ std::shared_ptr<WorkspaceMemento> ConfigSerializer::loadConfig(const std::string
             return nullptr;
         }
 
-        std::vector<std::string> openFiles;
-        std::string activeFileName;
-        std::map<std::string, bool> fileModifiedStates;
-        bool logEnabled = false;
-        std::vector<std::string> loggedFiles;
+        ConfigData data;
 
         std::string line;
         while (std::getline(file, line)) {
@@ -110,13 +112,11 @@ std::shared_ptr<WorkspaceMemento> ConfigSerializer::loadConfig(const std::string
 
             std::string key = StringUtils::trim(line.substr(0, colonPos));
             std::string value = StringUtils::trim(line.substr(colonPos + 1));
-            parseConfigLine(key, value, openFiles, activeFileName,
-                            fileModifiedStates, logEnabled, loggedFiles);
+            parseConfigLine(key, value, data);
         }
 
         file.close();
-        return std::make_shared<WorkspaceMemento>(openFiles, activeFileName,
-                                                   fileModifiedStates, logEnabled, loggedFiles);
+        return data.toMemento();
     });
 }
 

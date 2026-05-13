@@ -247,3 +247,17 @@ std::string TextEngine::show(const std::vector<std::string>& lines, int startLin
 
     return result;
 }
+
+void TextEngine::deleteLines(std::vector<std::string>& lines, int startRow, int count) {
+    if (startRow < 0 || count <= 0 || startRow + count > static_cast<int>(lines.size())) {
+        return;
+    }
+    lines.erase(lines.begin() + startRow, lines.begin() + startRow + count);
+}
+
+void TextEngine::insertLine(std::vector<std::string>& lines, int row, const std::string& line) {
+    if (row < 0 || row > static_cast<int>(lines.size())) {
+        return;
+    }
+    lines.insert(lines.begin() + row, line);
+}

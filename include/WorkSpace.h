@@ -34,13 +34,15 @@ public:
                      const std::string& activeFileName,
                      const std::map<std::string, bool>& fileModifiedStates,
                      bool logEnabled,
-                     const std::vector<std::string>& loggedFiles = {});
+                     const std::vector<std::string>& loggedFiles = {},
+                     const std::string& spellCheckerProduct = "");
 
     const std::vector<std::string>& getOpenFiles() const;
     const std::string& getActiveFileName() const;
     const std::map<std::string, bool>& getFileModifiedStates() const;
     bool isLogEnabled() const;
     const std::vector<std::string>& getLoggedFiles() const;
+    const std::string& getSpellCheckerProduct() const;
 
 private:
     std::vector<std::string> openFiles_;
@@ -48,6 +50,7 @@ private:
     std::map<std::string, bool> fileModifiedStates_;
     bool logEnabled_;
     std::vector<std::string> loggedFiles_;
+    std::string spellCheckerProduct_;
 };
 
 // WorkSpace类：作为协调员门面，组合四大协调器
@@ -150,6 +153,9 @@ private:
     // 拼写检查服务（可注入）
     std::shared_ptr<ISpellChecker> spellChecker_;
 
+    // 拼写检查产品配置
+    std::string spellCheckerProduct_;
+
     // 状态变量
     bool exitRequested_;
 
@@ -160,6 +166,9 @@ private:
     void restoreOpenFiles(const WorkspaceMemento& memento);
     void restoreModifiedStates(const WorkspaceMemento& memento);
     void restoreLogState(const WorkspaceMemento& memento);
+
+    // 根据配置字符串解析并创建拼写检查器实例
+    std::shared_ptr<ISpellChecker> resolveSpellChecker(const std::string& product) const;
 };
 
 #endif // WORKSPACE_H

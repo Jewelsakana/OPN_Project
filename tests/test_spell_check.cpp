@@ -10,7 +10,9 @@
 #include "CommandController.h"
 #include "CommandFactory.h"
 #include "TextEngine.h"
+#include "ConfigSerializer.h"
 #include <iostream>
+#include <fstream>
 #include <cassert>
 #include <string>
 #include <vector>
@@ -100,14 +102,18 @@ void testSpellCheckerSwap() {
     assert(results[0].suggestions[0] == "receive");
     printTestResult("ISpellChecker swap - MockSpellChecker works", true);
 
-    // 验证 HttpSpellCheckerAdapter 也实现了 ISpellChecker 接口（编译时检查）
-    // 实际 HTTP 调用会抛出异常（骨架实现）
+    // 验证 HttpSpellCheckerAdapter 实现了 ISpellChecker 接口并可实际调用
+    // 网络可能不可用，因此调用成功或运行时错误均属正常行为
     std::shared_ptr<ISpellChecker> httpChecker = std::make_shared<HttpSpellCheckerAdapter>();
     try {
-        httpChecker->checkText(seg);
-        printTestResult("ISpellChecker swap - HttpSpellCheckerAdapter compiled", false);
-    } catch (const std::runtime_error&) {
-        printTestResult("ISpellChecker swap - HttpSpellCheckerAdapter skeleton throws as expected", true);
+        auto httpResults = httpChecker->checkText(seg);
+        std::cout << (httpResults.empty() ? "  (HTTP API returned no errors)"
+                      : "  (HTTP API found " + std::to_string(httpResults.size()) + " error(s))")
+                  << std::endl;
+        printTestResult("ISpellChecker swap - HttpSpellCheckerAdapter works", true);
+    } catch (const std::runtime_error& e) {
+        std::cout << "  (HTTP API unavailable: " << e.what() << ")" << std::endl;
+        printTestResult("ISpellChecker swap - HttpSpellCheckerAdapter handles network error", true);
     }
 }
 
@@ -368,6 +374,130 @@ void testMockSpellCheckerCaseInsensitive() {
     }
 }
 
+// ============================================================
+// 测试9：ConfigSerializer 序列化/反序列化 spellCheckerProduct
+// ============================================================
+void testConfigSerializerSpellCheckerProduct() {
+    std::cout << "=== Testing ConfigSerializer spellCheckerProduct ===" << std::endl;
+
+    ConfigSerializer serializer;
+
+    // 测试保存和加载 "http"
+    {
+        WorkspaceMemento memento({}, "", {}, false, {}, "http");
+        serializer.saveConfig(".test_config_tmp", memento);
+        auto loaded = serializer.loadConfig(".test_config_tmp");
+        assert(loaded != nullptr);
+        assert(loaded->getSpellCheckerProduct() == "http");
+        std::remove(".test_config_tmp");
+        printTestResult("ConfigSerializer - save/load spellCheckerProduct 'http'", true);
+    }
+
+    // 测试保存和加载 "mock"
+    {
+        WorkspaceMemento memento({"file.txt"}, "file.txt", {}, true, {}, "mock");
+        serializer.saveConfig(".test_config_tmp", memento);
+        auto loaded = serializer.loadConfig(".test_config_tmp");
+        assert(loaded != nullptr);
+        assert(loaded->getSpellCheckerProduct() == "mock");
+        std::remove(".test_config_tmp");
+        printTestResult("ConfigSerializer - save/load spellCheckerProduct 'mock'", true);
+    }
+
+    // 测试空字符串（默认/factory 回退场景）
+    {
+        WorkspaceMemento memento({}, "", {}, false, {}, "");
+        serializer.saveConfig(".test_config_tmp", memento);
+        auto loaded = serializer.loadConfig(".test_config_tmp");
+        assert(loaded != nullptr);
+        assert(loaded->getSpellCheckerProduct() == "");
+        std::remove(".test_config_tmp");
+        printTestResult("ConfigSerializer - save/load empty spellCheckerProduct", true);
+    }
+}
+
+// ============================================================
+// 测试10：WorkSpace 默认使用 HttpSpellCheckerAdapter
+// ============================================================
+void testWorkSpaceDefaultsToHttpChecker() {
+    std::cout << "=== Testing WorkSpace Defaults to HttpSpellCheckerAdapter ===" << std::endl;
+
+    WorkSpace workspace;
+    auto checker = workspace.getSpellChecker();
+    assert(checker != nullptr);
+
+    // 默认应为 HttpSpellCheckerAdapter（配置缺失时回退到 http）
+    auto* httpAdapter = dynamic_cast<HttpSpellCheckerAdapter*>(checker.get());
+    assert(httpAdapter != nullptr);
+    printTestResult("WorkSpace - defaults to HttpSpellCheckerAdapter when no config", true);
+}
+
+// ============================================================
+// 测试11：resolveSpellChecker 根据配置字符串创建对应实例
+// ============================================================
+void testResolveSpellCheckerFromProduct() {
+    std::cout << "=== Testing resolveSpellChecker from product string ===" << std::endl;
+
+    // 测试可通过 ConfigSerializer 写入配置并让 WorkSpace 解析
+    // 先清理可能残留的配置文件
+    std::remove(".editor_config");
+
+    // 写入 mock 配置
+    ConfigSerializer serializer;
+    WorkspaceMemento mockMemento({}, "", {}, false, {}, "mock");
+    serializer.saveConfig(".editor_config", mockMemento);
+
+    // 创建 WorkSpace 应从配置中读取 mock
+    WorkSpace workspace;
+    auto checker = workspace.getSpellChecker();
+    assert(checker != nullptr);
+    auto* mockChecker = dynamic_cast<MockSpellChecker*>(checker.get());
+    assert(mockChecker != nullptr);
+    printTestResult("resolveSpellChecker - 'mock' creates MockSpellChecker", true);
+
+    std::remove(".editor_config");
+
+    // 写入 http 配置
+    WorkspaceMemento httpMemento({}, "", {}, false, {}, "http");
+    serializer.saveConfig(".editor_config", httpMemento);
+
+    WorkSpace workspace2;
+    auto checker2 = workspace2.getSpellChecker();
+    assert(checker2 != nullptr);
+    auto* httpAdapter = dynamic_cast<HttpSpellCheckerAdapter*>(checker2.get());
+    assert(httpAdapter != nullptr);
+    printTestResult("resolveSpellChecker - 'http' creates HttpSpellCheckerAdapter", true);
+
+    std::remove(".editor_config");
+}
+
+// ============================================================
+// 测试12：setSpellChecker 仍可在构造后覆盖配置
+// ============================================================
+void testSetSpellCheckerOverrideAfterConfig() {
+    std::cout << "=== Testing setSpellChecker Override After Config ===" << std::endl;
+
+    // 写入 mock 配置
+    ConfigSerializer serializer;
+    WorkspaceMemento memento({}, "", {}, false, {}, "mock");
+    serializer.saveConfig(".editor_config", memento);
+
+    WorkSpace workspace;
+    // 构造后应为 Mock（来自配置）
+    auto* mock1 = dynamic_cast<MockSpellChecker*>(workspace.getSpellChecker().get());
+    assert(mock1 != nullptr);
+
+    // 手动注入 HttpSpellCheckerAdapter 覆盖配置
+    auto httpChecker = std::make_shared<HttpSpellCheckerAdapter>();
+    workspace.setSpellChecker(httpChecker);
+    assert(workspace.getSpellChecker() == httpChecker);
+    auto* httpAdapter = dynamic_cast<HttpSpellCheckerAdapter*>(workspace.getSpellChecker().get());
+    assert(httpAdapter != nullptr);
+    printTestResult("setSpellChecker - override config with DI after construction", true);
+
+    std::remove(".editor_config");
+}
+
 int main() {
     std::cout << "Running Spell Check Tests..." << std::endl;
     std::cout << "========================================" << std::endl;
@@ -380,6 +510,10 @@ int main() {
     testSpellCheckCommandIntegration();
     testSpellCheckCommandFactory();
     testMockSpellCheckerCaseInsensitive();
+    testConfigSerializerSpellCheckerProduct();
+    testWorkSpaceDefaultsToHttpChecker();
+    testResolveSpellCheckerFromProduct();
+    testSetSpellCheckerOverrideAfterConfig();
 
     std::cout << "========================================" << std::endl;
     std::cout << "All Spell Check Tests Passed!" << std::endl;

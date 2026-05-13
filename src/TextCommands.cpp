@@ -100,13 +100,10 @@ void InsertCommand::undo() {
         // 重建原始行：beforeInsert + afterInsert
         std::string originalLine = beforeInsert + afterInsert;
 
-        // 删除新增的行（从targetRow开始，删除addedLines行）
+        // 委托 TextEngine：删除新增的行，插入原始行
         if (targetRow + addedLines <= static_cast<int>(lines().size())) {
-            // 删除从targetRow开始的addedLines行
-            lines().erase(lines().begin() + targetRow, lines().begin() + targetRow + addedLines);
-
-            // 插入原始行
-            lines().insert(lines().begin() + targetRow, originalLine);
+            textEngine()->deleteLines(lines(), targetRow, addedLines);
+            textEngine()->insertLine(lines(), targetRow, originalLine);
         }
     } else {
         // 单行插入的撤销：删除插入的文本
@@ -175,19 +172,18 @@ void AppendCommand::execute() {
 }
 
 void AppendCommand::undo() {
-    // 撤销追加：删除追加的行
+    // 撤销追加：删除追加的行（委托 TextEngine）
     if (appendedLineCount > 0) {
-        // 删除从originalLineCount开始的所有行
-        lines().resize(originalLineCount);
+        textEngine()->deleteLines(lines(), static_cast<int>(originalLineCount),
+                                  static_cast<int>(appendedLineCount));
     }
 }
 
 // ShowCommand实现
-ShowCommand::ShowCommand(const std::vector<std::string>& lines, TextEngine* engine,
+ShowCommand::ShowCommand(std::vector<std::string>& lines, TextEngine* engine,
                          OutputService* outputService,
                          int startLine, int endLine)
-    : lines_(lines)
-    , textEngine_(engine)
+    : TextCommand(lines, engine)
     , outputService_(outputService)
     , startLine_(startLine)
     , endLine_(endLine) {
@@ -198,7 +194,7 @@ ShowCommand::ShowCommand(const std::vector<std::string>& lines, TextEngine* engi
 
 void ShowCommand::execute() {
     // 调用TextEngine显示文本
-    result_ = textEngine_->show(lines_, startLine_, endLine_);
+    result_ = textEngine()->show(lines(), startLine_, endLine_);
 
     // 使用OutputService输出结果
     outputService_->outputText(result_);

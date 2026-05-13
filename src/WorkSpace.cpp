@@ -6,6 +6,7 @@
 #include "Logger.h"
 #include "EditDurationTracker.h"
 #include "MockSpellChecker.h"
+#include "HttpSpellCheckerAdapter.h"
 #include <algorithm>
 #include <stdexcept>
 #include <fstream>
@@ -20,12 +21,14 @@ WorkspaceMemento::WorkspaceMemento(const std::vector<std::string>& openFiles,
                                    const std::string& activeFileName,
                                    const std::map<std::string, bool>& fileModifiedStates,
                                    bool logEnabled,
-                                   const std::vector<std::string>& loggedFiles)
+                                   const std::vector<std::string>& loggedFiles,
+                                   const std::string& spellCheckerProduct)
     : openFiles_(openFiles),
       activeFileName_(activeFileName),
       fileModifiedStates_(fileModifiedStates),
       logEnabled_(logEnabled),
-      loggedFiles_(loggedFiles) {
+      loggedFiles_(loggedFiles),
+      spellCheckerProduct_(spellCheckerProduct) {
 }
 
 const std::vector<std::string>& WorkspaceMemento::getOpenFiles() const {
@@ -48,6 +51,10 @@ const std::vector<std::string>& WorkspaceMemento::getLoggedFiles() const {
     return loggedFiles_;
 }
 
+const std::string& WorkspaceMemento::getSpellCheckerProduct() const {
+    return spellCheckerProduct_;
+}
+
 // WorkSpace实现
 
 WorkSpace::WorkSpace()
@@ -57,14 +64,15 @@ WorkSpace::WorkSpace()
     , fileCoordinator_(fileSystemService_, documentManager_, outputService_, loggerManager_)
     , logCoordinator_(loggerManager_, outputService_)
     , exitRequested_(false) {
-    // 默认使用 MockSpellChecker，可通过 setSpellChecker 注入其他实现
-    spellChecker_ = std::make_shared<MockSpellChecker>();
     // 创建编辑时长统计器并注册为观察者
     durationTracker_ = std::make_shared<EditDurationTracker>();
     attach(durationTracker_);
     // 注入编辑器工厂（根据扩展名创建对应编辑器）
     fileCoordinator_.setEditorFactory([this](const std::string& ext) { return createEditorForExtension(ext); });
+    // 先加载配置（可能包含 spellCheckerProduct_，由 restoreFromMemento 解析）
     loadConfig(".editor_config");
+    // 根据配置解析拼写检查器，配置缺失时默认使用 http
+    spellChecker_ = resolveSpellChecker(spellCheckerProduct_);
 }
 
 WorkSpace::~WorkSpace() {
@@ -142,7 +150,8 @@ std::shared_ptr<WorkspaceMemento> WorkSpace::createMemento() const {
     auto modifiedStates = editorCoordinator_.getAllModifiedStates();
     auto loggedFiles = logCoordinator_.getLoggedFiles();
     return std::make_shared<WorkspaceMemento>(openFiles, activeFileName, modifiedStates,
-                                              logCoordinator_.isLogEnabled(), loggedFiles);
+                                              logCoordinator_.isLogEnabled(), loggedFiles,
+                                              spellCheckerProduct_);
 }
 
 void WorkSpace::restoreOpenFiles(const WorkspaceMemento& memento) {
@@ -207,6 +216,7 @@ void WorkSpace::restoreFromMemento(const WorkspaceMemento& memento) {
     restoreOpenFiles(memento);
     restoreModifiedStates(memento);
     restoreLogState(memento);
+    spellCheckerProduct_ = memento.getSpellCheckerProduct();
 }
 
 // 文件加载和保存（委托给FileCoordinator）
@@ -345,4 +355,18 @@ void WorkSpace::saveConfig(const std::string& configFile) {
 
 bool WorkSpace::loadConfig(const std::string& configFile) {
     return configManager_.loadConfig(configFile);
+}
+
+std::shared_ptr<ISpellChecker> WorkSpace::resolveSpellChecker(const std::string& product) const {
+    static const std::map<std::string, std::function<std::shared_ptr<ISpellChecker>()>> factories = {
+        {"mock", []() { return std::make_shared<MockSpellChecker>(); }},
+        {"http", []() { return std::make_shared<HttpSpellCheckerAdapter>(); }},
+    };
+
+    auto it = factories.find(product);
+    if (it != factories.end()) {
+        return it->second();
+    }
+    // 配置缺失或无法识别时默认使用 HttpSpellCheckerAdapter
+    return std::make_shared<HttpSpellCheckerAdapter>();
 }

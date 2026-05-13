@@ -104,6 +104,12 @@ public:
     // 生成初始内容行数组
     std::vector<std::string> initContent(bool withLog) const;
 
+    // 行级操作：删除从 startRow 开始的 count 行（0-based）
+    void deleteLines(std::vector<std::string>& lines, int startRow, int count);
+
+    // 行级操作：在 row 位置插入一行（0-based）
+    void insertLine(std::vector<std::string>& lines, int row, const std::string& line);
+
 private:
     // 其他私有辅助方法...
 };

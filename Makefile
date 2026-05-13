@@ -2,7 +2,7 @@
 # Compiler and flags
 CXX = g++
 CXXFLAGS = -std=c++17 -Wall -finput-charset=UTF-8 -fexec-charset=UTF-8 -Iinclude
-LDFLAGS =
+LDFLAGS = -lwinhttp
 
 # Directories
 SRC_DIR = src
@@ -46,7 +46,7 @@ test: all
 		test_name=$$(basename $$test_src .cpp); \
 		echo "---------------------------------------"; \
 		echo "Building $$test_name..."; \
-		$(CXX) $(CXXFLAGS) -I. $$test_src $(TEST_DEPS) -o $(BUILD_DIR)/$$test_name; \
+		$(CXX) $(CXXFLAGS) -I. $$test_src $(TEST_DEPS) $(LDFLAGS) -o $(BUILD_DIR)/$$test_name; \
 		echo "Running $$test_name..."; \
 		./$(BUILD_DIR)/$$test_name; \
 	done

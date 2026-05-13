@@ -464,3 +464,275 @@
 - SpellCheckCommand + WorkSpace DI 集成
 - CommandParser 解析（无参数 / 带文件名）
 - CommandFactory 创建验证
+
+---
+
+## 第五阶段补充：职责迁移到引擎类（设计24 回顾）
+
+### 25. getTextsToCheck() 职责迁移
+
+- **原则**: 编辑器仅做协调，内容逻辑归引擎/文档类
+- **TextEngine**: 新增 `getTextsToCheck(lines)` — 遍历行数组，跳过空行，返回 `vector<TextSegment>`
+- **TextEditor::getTextsToCheck()**: 从循环构建缩减为 `return textEngine->getTextsToCheck(lines)`
+- **IXmlDocument**: 新增纯虚方法 `getTextsToCheck()`
+- **XmlDocumentWrapper**: 实现 `getTextsToCheck()` — 遍历 `idToNodeMap_`，提取非空文本内容
+- **XmlEditor::getTextsToCheck()**: 从遍历+提取缩减为 `return document_->getTextsToCheck()`
+
+### 26. initContent() 职责迁移
+
+- **TextEngine**: 新增 `initContent(bool withLog)` → 返回 `{"#log"}` 或 `{""}`
+- **TextEditor::initContent()**: 从 ~6 行缩减为 `lines = textEngine->initContent(withLog)` + `setModified(true)`
+- **IXmlDocument**: 新增纯虚方法 `initContent(bool withLog)`
+- **XmlDocumentWrapper**: 实现 `initContent()` — 构建 XML 字符串 → `loadFromString` → `collectIds`
+- **XmlEditor::initContent()**: 从 ~6 行缩减为 `document_->initContent(withLog)` + `setModified(true)`
+
+### 新增/修改文件
+
+| 文件 | 变更类型 | 说明 |
+|------|---------|------|
+| `include/TextEngine.h` | 修改 | 新增 `getTextsToCheck`, `initContent` 声明 |
+| `src/TextEngine.cpp` | 修改 | 实现两个方法 |
+| `include/IXmlDocument.h` | 修改 | 新增 `getTextsToCheck`, `initContent` 纯虚方法 |
+| `include/XmlDocumentWrapper.h` | 修改 | 新增 override 声明 |
+| `src/XmlDocumentWrapper.cpp` | 修改 | 实现两个方法 |
+| `src/TextEditor.cpp` | 修改 | 委托给 TextEngine |
+| `src/XmlEditor.cpp` | 修改 | 委托给 IXmlDocument |
+
+---
+
+## 第六阶段：Bug 修复与 HttpSpellCheckerAdapter 实现（设计25）
+
+### 27. 修复双重错误提示 Bug
+
+- **问题**: `CommandController::executeCommand()` 的 try-catch 输出错误后 re-throw，外层 `parseAndExecuteCommand()` 再次 catch 并输出同一错误。XML 编辑器报错时出现两次错误提示
+- **修复**: 移除 `executeCommand()` 中的 try-catch，让异常传播到 `parseAndExecuteCommand()` 统一处理。`executeCommand()` 作为公共方法，其直接调用者（测试代码）也能直接感知异常
+- **修改文件**: `src/CommandController.cpp` — 移除内层 try-catch（~9 行代码）
+
+### 28. HttpSpellCheckerAdapter 完整实现
+
+- **HTTP 客户端**: 使用 WinHTTP API（`<windows.h>`, `<winhttp.h>`）发送 HTTPS POST 请求
+- **API**: 调用 `https://api.languagetool.org/v2/check`，参数 `language=en-US&text=<url-encoded>`
+- **URL 编码**: 自定义实现，字母数字保持原样，空格→%20，其他→%XX
+- **JSON 解析**: 轻量级字符串解析器，提取 `matches[].offset`、`matches[].length`、`replacements[].value`
+- **原始单词提取**: 通过 offset + length 从输入文本中截取
+- **结果映射**: offset → segment.column + offset，保留 segment.line / segment.elementId
+
+### WinHTTP 实现细节
+
+| 步骤 | API | 说明 |
+|------|-----|------|
+| 会话创建 | `WinHttpOpen` | 10 秒超时 |
+| 连接 | `WinHttpConnect` | 解析 URL 获取 host:port |
+| 请求 | `WinHttpOpenRequest` + `WinHttpSendRequest` | POST + Content-Type header + body |
+| 响应 | `WinHttpReceiveResponse` + `WinHttpReadData` | 循环读取直到 dataAvailable=0 |
+| 清理 | `WinHttpCloseHandle` × 3 | 请求→连接→会话 |
+
+### 新增依赖
+
+- **链接库**: `-lwinhttp`（Makefile LDFLAGS）
+- **头文件**: `<windows.h>`, `<winhttp.h>`（仅 HttpSpellCheckerAdapter.cpp）
+
+### 修改文件
+
+| 文件 | 变更类型 | 说明 |
+|------|---------|------|
+| `src/HttpSpellCheckerAdapter.cpp` | 重写 | 从骨架实现 → 完整 WinHTTP + JSON 解析 |
+| `src/CommandController.cpp` | 修改 | 移除 executeCommand 内层 try-catch |
+| `tests/test_spell_check.cpp` | 修改 | 更新 HTTP 适配器测试（接受网络成功/失败两种结果） |
+| `Makefile` | 修改 | LDFLAGS 添加 `-lwinhttp` |
+| `SUMMARY_2.md` | 修改 | 新增第六阶段内容 |
+
+---
+
+## 第七阶段：HttpClient 提取与职责分离（设计25 回顾）
+
+### 29. HttpSpellCheckerAdapter 职责拆分
+
+- **问题**: `HttpSpellCheckerAdapter` 混入了 ~100 行 WinHTTP 样板代码（URL 解析、会话管理、请求发送、响应读取），与 LanguageTool 协议逻辑（URL 编码、请求体构建、JSON 解析）混在一起
+- **拆分**: 提取通用 `HttpClient` 类，让 `HttpSpellCheckerAdapter` 仅保留 LanguageTool 协议
+
+### 职责对比
+
+| 类 | 职责 | 行数 |
+|----|------|------|
+| `HttpClient` | HTTP POST 传输（WinHTTP 样板代码） | ~120 |
+| `HttpSpellCheckerAdapter` | LanguageTool 协议（构建请求 + 解析 JSON 响应） | ~120 |
+| 拆分前 `HttpSpellCheckerAdapter` | 传输 + 协议混在一起 | ~255 |
+
+### HttpClient 接口
+
+```cpp
+class HttpClient {
+public:
+    std::string post(const std::string& url, const std::string& body,
+                     const std::string& contentType = "application/x-www-form-urlencoded");
+};
+```
+
+- **输入**: URL + 请求体 + Content-Type
+- **输出**: 响应体字符串
+- **不关心**: body 是什么格式、response 是什么格式
+- **依赖**: WinHTTP（仅 `<windows.h>`, `<winhttp.h>`）
+
+### HttpSpellCheckerAdapter 简化后
+
+```cpp
+checkText(segment) {
+    body = buildRequest(segment.text);          // LanguageTool 协议
+    response = httpClient_.post(apiUrl_, body); // 委托传输
+    return parseResponse(response, segment);    // LanguageTool 协议
+}
+```
+
+- `urlEncode` / `buildRequest` — 构建 LanguageTool API 请求体
+- `parseResponseBody` / `parseMatchObject` / `extractInt` — 解析 LanguageTool JSON 响应
+- `httpClient_` 成员 — HTTP 传输委托
+
+### 设计收益
+
+1. **可替换传输层**: 测试时可注入 Mock HttpClient，不联网验证请求构建/响应解析
+2. **可复用**: `HttpClient` 可用于其他需要 HTTP 的功能（不限于拼写检查）
+3. **单一职责**: 每个类只有一个变更理由 — HttpClient 因传输方式变，Adapter 因 API 协议变
+
+### 新增文件
+
+| 文件 | 说明 |
+|------|------|
+| `include/HttpClient.h` | HttpClient 类声明 |
+| `src/HttpClient.cpp` | WinHTTP POST 实现（~120 行） |
+
+### 修改文件
+
+| 文件 | 变更类型 | 说明 |
+|------|---------|------|
+| `include/HttpSpellCheckerAdapter.h` | 修改 | 移除 WinHTTP 依赖，新增 HttpClient 成员 |
+| `src/HttpSpellCheckerAdapter.cpp` | 重写 | 从 255 行缩减到 ~120 行，仅保留 LanguageTool 协议 |
+
+---
+
+## 第八阶段：通过配置切换拼写检查产品（设计26）
+
+### 30. 配置驱动的产品切换
+
+- **问题**: `WorkSpace` 构造函数硬编码 `spellChecker_ = std::make_shared<MockSpellChecker>()`，无法通过配置文件切换产品
+- **问题2**: `loadConfig()` 在拼写检查器初始化之后才调用，即使配置了产品也来不及
+- **修复**: 调整构造顺序（先 loadConfig → 再 resolveSpellChecker），通过 `.editor_config` 中的 `spellCheckerProduct` 键驱动产品选择
+
+### 配置格式
+
+```
+spellCheckerProduct: http    # 使用 LanguageTool HTTP API（默认）
+spellCheckerProduct: mock    # 使用内置 Mock 拼写检查器
+```
+
+- **配置缺失时默认**: `http` (HttpSpellCheckerAdapter)
+- **无法识别的值**: 同样回退到 `http`
+
+### 产品工厂 (map-based)
+
+```cpp
+static const std::map<std::string, std::function<std::shared_ptr<ISpellChecker>()>> factories = {
+    {"mock", []() { return std::make_shared<MockSpellChecker>(); }},
+    {"http", []() { return std::make_shared<HttpSpellCheckerAdapter>(); }},
+};
+```
+
+- 新增产品只需在 map 中加一行，无需修改构造函数或其他创建逻辑
+- `setSpellChecker()` 仍可在构造后覆盖配置（依赖注入优先级高于配置）
+
+### 构造流程变更
+
+| 步骤 | 变更前 | 变更后 |
+|------|--------|--------|
+| 1 | `spellChecker_ = MockSpellChecker` (硬编码) | `durationTracker_` + `attach` |
+| 2 | `loadConfig(".editor_config")` | `loadConfig(".editor_config")` → 解析 `spellCheckerProduct_` |
+| 3 | — | `spellChecker_ = resolveSpellChecker(spellCheckerProduct_)` |
+
+### 数据流
+
+```
+.editor_config                    ConfigSerializer              WorkSpace
+┌─────────────────────┐    parse   ┌──────────────────┐    ┌──────────────────────┐
+│ spellCheckerProduct │ ────────→  │ WorkspaceMemento │ ──→ │ spellCheckerProduct_ │
+│ : http              │            │ .spellCheckerProduct_ │  │ resolveSpellChecker  │
+└─────────────────────┘            └──────────────────┘    │ → HttpSpellChecker   │
+                                                           └──────────────────────┘
+```
+
+### 涉及变更
+
+| 文件 | 变更类型 | 说明 |
+|------|---------|------|
+| `include/WorkSpace.h` | 修改 | WorkspaceMemento 新增 `spellCheckerProduct_` 字段+getter；WorkSpace 新增 `spellCheckerProduct_` 成员和 `resolveSpellChecker()` 方法 |
+| `include/ConfigSerializer.h` | 修改 | `parseConfigLine()` 新增 `spellCheckerProduct` 参数 |
+| `src/ConfigSerializer.cpp` | 修改 | `saveConfig()` 序列化 `spellCheckerProduct`；`parseConfigLine()` 解析 `"spellCheckerProduct"` 键；`loadConfig()` 传递该字段 |
+| `src/WorkSpace.cpp` | 修改 | WorkspaceMemento 构造/`createMemento()`/`restoreFromMemento()` 传递产品信息；构造函数调整顺序；`resolveSpellChecker()` 实现 map 工厂（~15 行） |
+| `tests/test_spell_check.cpp` | 修改 | 新增 4 个测试函数（配置序列化/反序列化、默认 HTTP、配置切换、DI 覆盖） |
+
+### 测试覆盖
+
+- ConfigSerializer 保存/加载 `spellCheckerProduct` 的三种场景（http / mock / 空）
+- WorkSpace 无配置文件时默认创建 HttpSpellCheckerAdapter
+- `resolveSpellChecker("mock")` → MockSpellChecker, `resolveSpellChecker("http")` → HttpSpellCheckerAdapter
+- 配置注入后仍可通过 `setSpellChecker()` 覆盖（DI 覆盖配置）
+
+---
+
+## 第九阶段：重构 — 消除代码坏味道（设计27）
+
+### 31. ConfigSerializer：参数列表过长 + 代码重复
+
+**坏味道 #15（参数列表过长）**：`parseConfigLine()` 有 7 个参数（6 个 out-参数），每次新增配置键需要修改三处签名。
+
+**坏味道 #1（代码重复）**：`saveConfig()` 中 `openFiles` 和 `loggedFiles` 的逗号分隔列表序列化逻辑重复。
+
+**重构方案**：
+- 新增 `ConfigData` 结构体封装 6 个 out-参数 → `parseConfigLine(key, value, ConfigData&)`
+- `ConfigData::toMemento()` 方法直接创建 `WorkspaceMemento`
+- 提取 `writeCommaSeparatedList(file, key, items)` 消除列表序列化重复
+
+**变更前后对比**：
+
+| 指标 | 重构前 | 重构后 |
+|------|--------|--------|
+| `parseConfigLine` 参数数 | 7 | 3 |
+| 列表序列化逻辑 | 写 2 遍 | 写 1 遍（辅助方法） |
+| 新增配置键需修改 | 3 处签名 | 2 处（ConfigData 字段 + parseConfigLine 分支） |
+
+### 32. TextCommands：继承体系不一致 + 绕过引擎
+
+**坏味道 #3（接口抽象层次不一致）**：`ShowCommand` 直接继承 `Command`，而其他 5 个文本命令继承 `TextCommand`，导致 `lines_` 和 `textEngine_` 成员重复声明。
+
+**坏味道 #14（子程序使用其他类的功能多于本类）**：`InsertCommand::undo()` 多行插入分支直接调用 `lines().erase()` / `lines().insert()`，`AppendCommand::undo()` 调用 `lines().resize()`，绕过 `TextEngine`。
+
+**重构方案**：
+- `ShowCommand` 改为继承 `TextCommand`，删除重复的 `lines_` / `textEngine_` 成员，使用继承的 `lines()` / `textEngine()` 访问器
+- `TextEngine` 新增 `deleteLines(lines, startRow, count)` 和 `insertLine(lines, row, line)` 行级操作方法
+- `InsertCommand::undo()` 和 `AppendCommand::undo()` 改为委托 `TextEngine` 而非直接操作 `lines_`
+
+### 33. DirectoryService：重复的路径验证与目录遍历
+
+**坏味道 #1（代码重复，两处）**：
+- `getDirectoryTree()` 和 `getDirectoryTreeStructure()` 的路径验证逻辑完全相同（12 行）
+- `buildDirectoryTree()` 和 `buildDirectoryTreeStructure()` 的目录条目收集+排序逻辑完全相同（5 行）
+
+**重构方案**：
+- 提取 `resolveDirPath(path)` → 返回验证后的 `fs::path`（消除 12×2 行重复）
+- 提取 `getSortedEntries(path)` → 返回排序后的条目列表（消除 5×2 行重复）
+- 作为匿名命名空间中的自由函数，无需修改头文件
+
+### 涉及变更
+
+| 文件 | 变更类型 | 说明 |
+|------|---------|------|
+| `include/ConfigSerializer.h` | 修改 | 新增 `ConfigData` 结构体；`parseConfigLine()` 签名从 7 参数简化为 3 参数；新增 `writeCommaSeparatedList` |
+| `src/ConfigSerializer.cpp` | 重写 | `loadConfig()` 使用 `ConfigData` 收集数据；`saveConfig()` 使用 `writeCommaSeparatedList` 消除重复 |
+| `include/TextCommands.h` | 修改 | `ShowCommand` 改为继承 `TextCommand`，移除重复的 `lines_` / `textEngine_` 成员 |
+| `src/TextCommands.cpp` | 修改 | `ShowCommand` 构造委托 `TextCommand`；`InsertCommand::undo()` / `AppendCommand::undo()` 委托 `TextEngine` |
+| `include/TextEngine.h` | 修改 | 新增 `deleteLines()` 和 `insertLine()` 声明 |
+| `src/TextEngine.cpp` | 修改 | 新增 `deleteLines()` 和 `insertLine()` 实现（~10 行） |
+| `src/DirectoryService.cpp` | 重写 | 提取 `resolveDirPath()` / `getSortedEntries()`；消除 34 行重复代码 |
+
+### 测试覆盖
+
+- 所有现有测试套件（spell_check / commandparser / xml_integration）全数通过，零回归

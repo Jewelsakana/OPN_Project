@@ -89,10 +89,10 @@ private:
 };
 
 // ShowCommand类：显示文本命令（只读，不进入UndoStack）
-// 直接继承Command，不继承TextCommand，避免const_cast
-class ShowCommand : public Command {
+// 继承TextCommand，只读语义通过isReadOnly()保证，不在execute中修改行数据
+class ShowCommand : public TextCommand {
 public:
-    ShowCommand(const std::vector<std::string>& lines, TextEngine* engine,
+    ShowCommand(std::vector<std::string>& lines, TextEngine* engine,
                 OutputService* outputService,
                 int startLine = 0, int endLine = -1);
 
@@ -106,8 +106,6 @@ public:
     std::string getResult() const;
 
 private:
-    const std::vector<std::string>& lines_; // 常量引用，只读
-    TextEngine* textEngine_;               // TextEngine指针
     OutputService* outputService_;          // 输出服务
     int startLine_;
     int endLine_;

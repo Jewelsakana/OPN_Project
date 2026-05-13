@@ -45,20 +45,15 @@ std::unique_ptr<Command> CommandController::createCommandFromParsed(const Parsed
 }
 
 void CommandController::executeCommand(std::unique_ptr<Command> command) {
-    try {
-        if (auto* wsCommand = dynamic_cast<WorkSpaceCommand*>(command.get())) {
-            wsCommand->execute();
+    if (auto* wsCommand = dynamic_cast<WorkSpaceCommand*>(command.get())) {
+        wsCommand->execute();
+    } else {
+        auto activeEditor = workspace_->getActiveEditor();
+        if (activeEditor) {
+            activeEditor->executeCommand(std::move(command));
         } else {
-            auto activeEditor = workspace_->getActiveEditor();
-            if (activeEditor) {
-                activeEditor->executeCommand(std::move(command));
-            } else {
-                throw std::runtime_error("No active editor to execute command");
-            }
+            throw std::runtime_error("No active editor to execute command");
         }
-    } catch (const std::exception& e) {
-        workspace_->outputError(e.what());
-        throw;
     }
 }
 

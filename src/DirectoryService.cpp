@@ -7,37 +7,52 @@
 
 #if HAS_FILESYSTEM
 namespace {
-    bool compareDirectoryEntries(const fs::directory_entry& a, const fs::directory_entry& b) {
-        bool aIsDir = fs::is_directory(a.path());
-        bool bIsDir = fs::is_directory(b.path());
-        if (aIsDir != bIsDir) {
-            return aIsDir > bIsDir;
-        }
-        return a.path().filename().string() < b.path().filename().string();
+
+bool compareDirectoryEntries(const fs::directory_entry& a, const fs::directory_entry& b) {
+    bool aIsDir = fs::is_directory(a.path());
+    bool bIsDir = fs::is_directory(b.path());
+    if (aIsDir != bIsDir) {
+        return aIsDir > bIsDir;
     }
+    return a.path().filename().string() < b.path().filename().string();
 }
+
+// 解析并验证目录路径（消除 getDirectoryTree / getDirectoryTreeStructure 的重复）
+fs::path resolveDirPath(const std::string& path) {
+    fs::path dirPath;
+    if (path.empty()) {
+        dirPath = fs::current_path();
+    } else {
+        dirPath = fs::path(path);
+    }
+    if (!fs::exists(dirPath)) {
+        throw std::runtime_error("Directory does not exist: " + dirPath.string());
+    }
+    if (!fs::is_directory(dirPath)) {
+        throw std::runtime_error("Path is not a directory: " + dirPath.string());
+    }
+    return dirPath;
+}
+
+// 获取排序后的目录条目列表（消除 buildDirectoryTree / buildDirectoryTreeStructure 的重复）
+std::vector<fs::directory_entry> getSortedEntries(const std::string& path) {
+    std::vector<fs::directory_entry> entries;
+    for (const auto& entry : fs::directory_iterator(path)) {
+        entries.push_back(entry);
+    }
+    std::sort(entries.begin(), entries.end(), compareDirectoryEntries);
+    return entries;
+}
+
+} // anonymous namespace
 #endif
 
 std::string DirectoryService::getDirectoryTree(const std::string& path) {
     return safeExecute([this, &path]() -> std::string {
 #if HAS_FILESYSTEM
+        fs::path dirPath = resolveDirPath(path);
+
         std::stringstream ss;
-
-        fs::path dirPath;
-        if (path.empty()) {
-            dirPath = fs::current_path();
-        } else {
-            dirPath = fs::path(path);
-        }
-
-        if (!fs::exists(dirPath)) {
-            throw std::runtime_error("Directory does not exist: " + dirPath.string());
-        }
-
-        if (!fs::is_directory(dirPath)) {
-            throw std::runtime_error("Path is not a directory: " + dirPath.string());
-        }
-
         ss << dirPath.string() << "\n";
         ss << buildDirectoryTree(dirPath.string(), "", true);
         return ss.str();
@@ -52,12 +67,7 @@ std::string DirectoryService::buildDirectoryTree(const std::string& path, const 
     std::stringstream ss;
 
     try {
-        std::vector<fs::directory_entry> entries;
-        for (const auto& entry : fs::directory_iterator(path)) {
-            entries.push_back(entry);
-        }
-
-        std::sort(entries.begin(), entries.end(), compareDirectoryEntries);
+        auto entries = getSortedEntries(path);
 
         for (size_t i = 0; i < entries.size(); ++i) {
             const auto& entry = entries[i];
@@ -103,21 +113,7 @@ std::string DirectoryService::buildDirectoryTree(const std::string& path, const 
 std::shared_ptr<TreeNode> DirectoryService::getDirectoryTreeStructure(const std::string& path) {
     return safeExecute([this, &path]() -> std::shared_ptr<TreeNode> {
 #if HAS_FILESYSTEM
-        fs::path dirPath;
-        if (path.empty()) {
-            dirPath = fs::current_path();
-        } else {
-            dirPath = fs::path(path);
-        }
-
-        if (!fs::exists(dirPath)) {
-            throw std::runtime_error("Directory does not exist: " + dirPath.string());
-        }
-
-        if (!fs::is_directory(dirPath)) {
-            throw std::runtime_error("Path is not a directory: " + dirPath.string());
-        }
-
+        fs::path dirPath = resolveDirPath(path);
         return buildDirectoryTreeStructure(dirPath.string());
 #else
         throw std::runtime_error("Filesystem library not available. Cannot build directory tree structure.");
@@ -136,12 +132,7 @@ std::shared_ptr<TreeNode> DirectoryService::buildDirectoryTreeStructure(const st
 
         auto node = std::make_shared<TreeNode>(name, true);
 
-        std::vector<fs::directory_entry> entries;
-        for (const auto& entry : fs::directory_iterator(path)) {
-            entries.push_back(entry);
-        }
-
-        std::sort(entries.begin(), entries.end(), compareDirectoryEntries);
+        auto entries = getSortedEntries(path);
 
         for (const auto& entry : entries) {
             std::string entryName = entry.path().filename().string();

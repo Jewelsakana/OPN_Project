@@ -2,11 +2,12 @@
 #define HTTPSPELLCHECKERADAPTER_H
 
 #include "ISpellChecker.h"
+#include "HttpClient.h"
 #include <string>
+#include <memory>
 
 // HttpSpellCheckerAdapter：基于 LanguageTool HTTP API 的拼写检查适配器
-// 使用 https://dev.languagetool.org/public-http-api 进行拼写检查
-// 当前为骨架实现，预留了 HTTP 请求结构和接口
+// 职责：LanguageTool 协议（请求构建 + JSON 响应解析），HTTP 传输委托给 HttpClient
 class HttpSpellCheckerAdapter : public ISpellChecker {
 public:
     explicit HttpSpellCheckerAdapter(const std::string& apiUrl = "https://api.languagetool.org/v2/check");
@@ -16,11 +17,9 @@ public:
 
 private:
     std::string apiUrl_;
+    HttpClient httpClient_;
 
-    // 构建 LanguageTool API 请求体
     std::string buildRequest(const std::string& text, const std::string& language = "en-US") const;
-
-    // 解析 LanguageTool API 响应
     std::vector<SpellCheckResult> parseResponse(const std::string& responseBody,
                                                  const TextSegment& segment) const;
 };

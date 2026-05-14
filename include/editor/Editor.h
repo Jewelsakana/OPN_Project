@@ -5,7 +5,7 @@
 #include <string>
 #include <vector>
 #include "CommandParser.h"
-#include "ISpellChecker.h"
+#include "TextSegment.h"
 
 // 前向声明
 class Command;
@@ -25,8 +25,8 @@ public:
     virtual bool canUndo() const { return false; }
     virtual bool canRedo() const { return false; }
 
-    // 检查是否支持某个编辑器命令类型
-    virtual bool supportsCommand(EditorCommandType type) const = 0;
+    // 检查是否支持某个编辑器命令类型（CommandTypeId 支持插件运行时注册的类型）
+    virtual bool supportsCommand(CommandTypeId type) const = 0;
 
     // 文件内容序列化/反序列化（多态方法，消除FileCoordinator中的dynamic_cast分支）
     virtual void loadFromData(const std::string& content) {}

@@ -229,7 +229,7 @@ void test_editor_list_parsing() {
         auto parsed = parser.parse("editor-list");
         auto* ws = parsed.asWorkSpace();
         assert(ws != nullptr);
-        assert(ws->workSpaceType == WorkSpaceCommandType::EditorList);
+        assert(ws->workSpaceType == static_cast<CommandTypeId>(WorkSpaceCommandType::EditorList));
         assert(!ws->target.has_value());
         printTestResult("editor-list (no arg) - OK", true);
     }
@@ -239,7 +239,7 @@ void test_editor_list_parsing() {
         auto parsed = parser.parse("editor-list tree");
         auto* ws = parsed.asWorkSpace();
         assert(ws != nullptr);
-        assert(ws->workSpaceType == WorkSpaceCommandType::EditorList);
+        assert(ws->workSpaceType == static_cast<CommandTypeId>(WorkSpaceCommandType::EditorList));
         assert(ws->target.has_value());
         assert(ws->target.value() == "tree");
         printTestResult("editor-list tree - OK", true);

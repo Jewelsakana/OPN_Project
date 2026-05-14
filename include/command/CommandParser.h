@@ -8,6 +8,7 @@
 #include <vector>
 #include <optional>
 #include <variant>
+#include <functional>
 
 // 前向声明
 class Command;
@@ -48,7 +49,10 @@ enum class CommandType {
     WorkSpaceCommand
 };
 
-// 编辑器命令子类型枚举
+// 命令类型 ID（运行时注册，支持插件扩展）
+using CommandTypeId = int;
+
+// 编辑器命令子类型枚举（内置命令类型，插件可调用 CommandRegistry::registerType 注册新类型）
 enum class EditorCommandType {
     Append,
     Insert,
@@ -64,7 +68,7 @@ enum class EditorCommandType {
     XmlTree
 };
 
-// 工作区命令子类型枚举
+// 工作区命令子类型枚举（内置命令类型）
 enum class WorkSpaceCommandType {
     Load,
     Save,
@@ -82,24 +86,34 @@ enum class WorkSpaceCommandType {
     SpellCheck
 };
 
+// 命令类型注册表：支持插件在运行时注册新的命令类型
+class CommandRegistry {
+public:
+    // 注册新的编辑器命令类型，返回分配的 ID（>= 1000 避免与内置枚举冲突）
+    static CommandTypeId registerEditorType(const std::string& name);
+    static CommandTypeId registerWorkSpaceType(const std::string& name);
+};
+
 // 编辑器命令解析结果
 struct EditorParsedCommand {
-    EditorCommandType editorType;
+    CommandTypeId editorType = 0;
     std::optional<int> line;
     std::optional<int> column;
     std::optional<int> length;
     std::optional<std::string> text;
     std::optional<int> startLine;
     std::optional<int> endLine;
-    // XML 命令字段
+    // XML 命令专用字段
     std::optional<std::string> tagName;
     std::optional<std::string> newId;
     std::optional<std::string> targetId;
+    // 插件命令通用参数（原始 token 列表，插件自行解析）
+    std::vector<std::string> args;
 };
 
 // 工作区命令解析结果
 struct WorkSpaceParsedCommand {
-    WorkSpaceCommandType workSpaceType;
+    CommandTypeId workSpaceType = 0;
     std::optional<std::string> fileName;
     std::optional<std::string> target;
     std::optional<std::string> path;
@@ -134,14 +148,26 @@ public:
     // 解析命令字符串，返回ParsedCommand对象
     ParsedCommand parse(const std::string& commandString);
 
+    // 注册命令解析策略工厂（由 REGISTER_PARSER 宏调用，或插件手动调用）
+    static void registerStrategyFactory(std::function<std::unique_ptr<ICommandParserStrategy>()> factory);
+
 private:
     std::vector<CommandParserStrategyPtr> strategies_;
 
-    // 注册所有命令解析策略
+    // 收集所有自注册的策略到实例的 strategies_ 中
     void registerStrategies();
 
     // 分割命令行参数
     std::vector<std::string> splitCommandLine(const std::string& commandString);
 };
+
+// 解析器自注册宏：在 CommandParserStrategy.cpp 或插件 .cpp 中使用
+// 用法：REGISTER_PARSER(AppendParser)
+#define REGISTER_PARSER(CLASS) \
+    static bool _reg_parser_##CLASS = []() { \
+        CommandParser::registerStrategyFactory( \
+            []() -> std::unique_ptr<ICommandParserStrategy> { return std::make_unique<CLASS>(); }); \
+        return true; \
+    }();
 
 #endif // COMMANDPARSER_H

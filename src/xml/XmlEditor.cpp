@@ -95,8 +95,8 @@ std::vector<std::string> XmlEditor::getAllIds() const {
     return document_->getAllIds();
 }
 
-bool XmlEditor::supportsCommand(EditorCommandType type) const {
-    switch (type) {
+bool XmlEditor::supportsCommand(CommandTypeId type) const {
+    switch (static_cast<EditorCommandType>(type)) {
         case EditorCommandType::InsertBefore:
         case EditorCommandType::AppendChild:
         case EditorCommandType::EditId:
@@ -105,6 +105,7 @@ bool XmlEditor::supportsCommand(EditorCommandType type) const {
         case EditorCommandType::XmlTree:
             return true;
         default:
+            // 插件注册的类型（ID >= 1000），XmlEditor 默认不支持
             return false;
     }
 }

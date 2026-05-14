@@ -5,6 +5,25 @@
 #include <sstream>
 #include <algorithm>
 #include <cctype>
+#include <unordered_map>
+
+CommandTypeId CommandRegistry::registerEditorType(const std::string& /*name*/) {
+    static CommandTypeId nextId = 1000;
+    return nextId++;
+}
+
+CommandTypeId CommandRegistry::registerWorkSpaceType(const std::string& /*name*/) {
+    static CommandTypeId nextId = 2000;
+    return nextId++;
+}
+
+namespace {
+    using ParserFactory = std::function<std::unique_ptr<ICommandParserStrategy>()>;
+    std::vector<ParserFactory>& parserRegistry() {
+        static std::vector<ParserFactory> registry;
+        return registry;
+    }
+}
 
 CommandParser::CommandParser() {
     registerStrategies();
@@ -12,33 +31,14 @@ CommandParser::CommandParser() {
 
 CommandParser::~CommandParser() = default;
 
+void CommandParser::registerStrategyFactory(ParserFactory factory) {
+    parserRegistry().push_back(std::move(factory));
+}
+
 void CommandParser::registerStrategies() {
-    strategies_.push_back(std::make_unique<AppendParser>());
-    strategies_.push_back(std::make_unique<InsertParser>());
-    strategies_.push_back(std::make_unique<DeleteParser>());
-    strategies_.push_back(std::make_unique<ReplaceParser>());
-    strategies_.push_back(std::make_unique<ShowParser>());
-    strategies_.push_back(std::make_unique<LoadParser>());
-    strategies_.push_back(std::make_unique<SaveParser>());
-    strategies_.push_back(std::make_unique<InitParser>());
-    strategies_.push_back(std::make_unique<CloseParser>());
-    strategies_.push_back(std::make_unique<EditParser>());
-    strategies_.push_back(std::make_unique<EditorListParser>());
-    strategies_.push_back(std::make_unique<DirTreeParser>());
-    strategies_.push_back(std::make_unique<UndoParser>());
-    strategies_.push_back(std::make_unique<RedoParser>());
-    strategies_.push_back(std::make_unique<ExitParser>());
-    strategies_.push_back(std::make_unique<LogonParser>());
-    strategies_.push_back(std::make_unique<LogoffParser>());
-    strategies_.push_back(std::make_unique<LogshowParser>());
-    // XML 命令解析器
-    strategies_.push_back(std::make_unique<InsertBeforeParser>());
-    strategies_.push_back(std::make_unique<AppendChildParser>());
-    strategies_.push_back(std::make_unique<EditIdParser>());
-    strategies_.push_back(std::make_unique<EditTextParser>());
-    strategies_.push_back(std::make_unique<XmlTreeParser>());
-    // 拼写检查命令解析器
-    strategies_.push_back(std::make_unique<SpellCheckParser>());
+    for (auto& factory : parserRegistry()) {
+        strategies_.push_back(factory());
+    }
 }
 
 ParsedCommand CommandParser::parse(const std::string& commandString) {

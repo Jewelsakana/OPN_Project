@@ -15,7 +15,7 @@ void test_work_space_commands() {
         assert(parsed.type == CommandType::WorkSpaceCommand);
         auto* ws = parsed.asWorkSpace();
         assert(ws != nullptr);
-        assert(ws->workSpaceType == WorkSpaceCommandType::Load);
+        assert(ws->workSpaceType == static_cast<CommandTypeId>(WorkSpaceCommandType::Load));
         assert(ws->fileName && *ws->fileName == "test.txt");
         std::cout << "  ✓ load test.txt - OK" << std::endl;
     } catch (const std::exception& e) {
@@ -29,7 +29,7 @@ void test_work_space_commands() {
         assert(parsed.type == CommandType::WorkSpaceCommand);
         auto* ws = parsed.asWorkSpace();
         assert(ws != nullptr);
-        assert(ws->workSpaceType == WorkSpaceCommandType::Save);
+        assert(ws->workSpaceType == static_cast<CommandTypeId>(WorkSpaceCommandType::Save));
         assert(!ws->target || ws->target->empty());
         std::cout << "  ✓ save - OK" << std::endl;
     } catch (const std::exception& e) {
@@ -43,7 +43,7 @@ void test_work_space_commands() {
         assert(parsed.type == CommandType::WorkSpaceCommand);
         auto* ws = parsed.asWorkSpace();
         assert(ws != nullptr);
-        assert(ws->workSpaceType == WorkSpaceCommandType::Save);
+        assert(ws->workSpaceType == static_cast<CommandTypeId>(WorkSpaceCommandType::Save));
         assert(ws->target && *ws->target == "output.txt");
         std::cout << "  ✓ save output.txt - OK" << std::endl;
     } catch (const std::exception& e) {
@@ -57,7 +57,7 @@ void test_work_space_commands() {
         assert(parsed.type == CommandType::WorkSpaceCommand);
         auto* ws = parsed.asWorkSpace();
         assert(ws != nullptr);
-        assert(ws->workSpaceType == WorkSpaceCommandType::Init);
+        assert(ws->workSpaceType == static_cast<CommandTypeId>(WorkSpaceCommandType::Init));
         assert(ws->fileName && *ws->fileName == "newfile.txt");
         assert(ws->withLog && *ws->withLog == false);
         std::cout << "  ✓ init newfile.txt - OK" << std::endl;
@@ -72,7 +72,7 @@ void test_work_space_commands() {
         assert(parsed.type == CommandType::WorkSpaceCommand);
         auto* ws = parsed.asWorkSpace();
         assert(ws != nullptr);
-        assert(ws->workSpaceType == WorkSpaceCommandType::Init);
+        assert(ws->workSpaceType == static_cast<CommandTypeId>(WorkSpaceCommandType::Init));
         assert(ws->fileName && *ws->fileName == "newfile.txt");
         assert(ws->withLog && *ws->withLog == true);
         std::cout << "  ✓ init newfile.txt with-log - OK" << std::endl;
@@ -87,7 +87,7 @@ void test_work_space_commands() {
         assert(parsed.type == CommandType::WorkSpaceCommand);
         auto* ws = parsed.asWorkSpace();
         assert(ws != nullptr);
-        assert(ws->workSpaceType == WorkSpaceCommandType::Close);
+        assert(ws->workSpaceType == static_cast<CommandTypeId>(WorkSpaceCommandType::Close));
         assert(!ws->fileName || ws->fileName->empty());
         std::cout << "  ✓ close - OK" << std::endl;
     } catch (const std::exception& e) {
@@ -101,7 +101,7 @@ void test_work_space_commands() {
         assert(parsed.type == CommandType::WorkSpaceCommand);
         auto* ws = parsed.asWorkSpace();
         assert(ws != nullptr);
-        assert(ws->workSpaceType == WorkSpaceCommandType::Close);
+        assert(ws->workSpaceType == static_cast<CommandTypeId>(WorkSpaceCommandType::Close));
         assert(ws->fileName && *ws->fileName == "test.txt");
         std::cout << "  ✓ close test.txt - OK" << std::endl;
     } catch (const std::exception& e) {
@@ -115,7 +115,7 @@ void test_work_space_commands() {
         assert(parsed.type == CommandType::WorkSpaceCommand);
         auto* ws = parsed.asWorkSpace();
         assert(ws != nullptr);
-        assert(ws->workSpaceType == WorkSpaceCommandType::Edit);
+        assert(ws->workSpaceType == static_cast<CommandTypeId>(WorkSpaceCommandType::Edit));
         assert(ws->fileName && *ws->fileName == "another.txt");
         std::cout << "  ✓ edit another.txt - OK" << std::endl;
     } catch (const std::exception& e) {
@@ -129,7 +129,7 @@ void test_work_space_commands() {
         assert(parsed.type == CommandType::WorkSpaceCommand);
         auto* ws = parsed.asWorkSpace();
         assert(ws != nullptr);
-        assert(ws->workSpaceType == WorkSpaceCommandType::EditorList);
+        assert(ws->workSpaceType == static_cast<CommandTypeId>(WorkSpaceCommandType::EditorList));
         std::cout << "  ✓ editor-list - OK" << std::endl;
     } catch (const std::exception& e) {
         std::cout << "  ✗ editor-list - FAILED: " << e.what() << std::endl;
@@ -142,7 +142,7 @@ void test_work_space_commands() {
         assert(parsed.type == CommandType::WorkSpaceCommand);
         auto* ws = parsed.asWorkSpace();
         assert(ws != nullptr);
-        assert(ws->workSpaceType == WorkSpaceCommandType::DirTree);
+        assert(ws->workSpaceType == static_cast<CommandTypeId>(WorkSpaceCommandType::DirTree));
         assert(!ws->path || ws->path->empty());
         std::cout << "  ✓ dir-tree - OK" << std::endl;
     } catch (const std::exception& e) {
@@ -156,7 +156,7 @@ void test_work_space_commands() {
         assert(parsed.type == CommandType::WorkSpaceCommand);
         auto* ws = parsed.asWorkSpace();
         assert(ws != nullptr);
-        assert(ws->workSpaceType == WorkSpaceCommandType::DirTree);
+        assert(ws->workSpaceType == static_cast<CommandTypeId>(WorkSpaceCommandType::DirTree));
         assert(ws->path && *ws->path == "/home/user");
         std::cout << "  ✓ dir-tree /home/user - OK" << std::endl;
     } catch (const std::exception& e) {
@@ -170,7 +170,7 @@ void test_work_space_commands() {
         assert(parsed.type == CommandType::WorkSpaceCommand);
         auto* ws = parsed.asWorkSpace();
         assert(ws != nullptr);
-        assert(ws->workSpaceType == WorkSpaceCommandType::Undo);
+        assert(ws->workSpaceType == static_cast<CommandTypeId>(WorkSpaceCommandType::Undo));
         std::cout << "  ✓ undo - OK" << std::endl;
     } catch (const std::exception& e) {
         std::cout << "  ✗ undo - FAILED: " << e.what() << std::endl;
@@ -183,7 +183,7 @@ void test_work_space_commands() {
         assert(parsed.type == CommandType::WorkSpaceCommand);
         auto* ws = parsed.asWorkSpace();
         assert(ws != nullptr);
-        assert(ws->workSpaceType == WorkSpaceCommandType::Redo);
+        assert(ws->workSpaceType == static_cast<CommandTypeId>(WorkSpaceCommandType::Redo));
         std::cout << "  ✓ redo - OK" << std::endl;
     } catch (const std::exception& e) {
         std::cout << "  ✗ redo - FAILED: " << e.what() << std::endl;
@@ -196,7 +196,7 @@ void test_work_space_commands() {
         assert(parsed.type == CommandType::WorkSpaceCommand);
         auto* ws = parsed.asWorkSpace();
         assert(ws != nullptr);
-        assert(ws->workSpaceType == WorkSpaceCommandType::Exit);
+        assert(ws->workSpaceType == static_cast<CommandTypeId>(WorkSpaceCommandType::Exit));
         std::cout << "  ✓ exit - OK" << std::endl;
     } catch (const std::exception& e) {
         std::cout << "  ✗ exit - FAILED: " << e.what() << std::endl;
@@ -217,7 +217,7 @@ void test_editor_commands_parsing() {
         assert(parsed.type == CommandType::EditorCommand);
         auto* ed = parsed.asEditor();
         assert(ed != nullptr);
-        assert(ed->editorType == EditorCommandType::Append);
+        assert(ed->editorType == static_cast<CommandTypeId>(EditorCommandType::Append));
         assert(ed->text && *ed->text == "Hello World");
         std::cout << "  ✓ append \"Hello World\" - format OK" << std::endl;
     } catch (const std::exception& e) {
@@ -231,7 +231,7 @@ void test_editor_commands_parsing() {
         assert(parsed.type == CommandType::EditorCommand);
         auto* ed = parsed.asEditor();
         assert(ed != nullptr);
-        assert(ed->editorType == EditorCommandType::Insert);
+        assert(ed->editorType == static_cast<CommandTypeId>(EditorCommandType::Insert));
         assert(ed->line && *ed->line == 1);
         assert(ed->column && *ed->column == 5);
         assert(ed->text && *ed->text == "text to insert");
@@ -247,7 +247,7 @@ void test_editor_commands_parsing() {
         assert(parsed.type == CommandType::EditorCommand);
         auto* ed = parsed.asEditor();
         assert(ed != nullptr);
-        assert(ed->editorType == EditorCommandType::Delete);
+        assert(ed->editorType == static_cast<CommandTypeId>(EditorCommandType::Delete));
         assert(ed->line && *ed->line == 2);
         assert(ed->column && *ed->column == 10);
         assert(ed->length && *ed->length == 5);
@@ -263,7 +263,7 @@ void test_editor_commands_parsing() {
         assert(parsed.type == CommandType::EditorCommand);
         auto* ed = parsed.asEditor();
         assert(ed != nullptr);
-        assert(ed->editorType == EditorCommandType::Replace);
+        assert(ed->editorType == static_cast<CommandTypeId>(EditorCommandType::Replace));
         assert(ed->line && *ed->line == 3);
         assert(ed->column && *ed->column == 2);
         assert(ed->length && *ed->length == 4);
@@ -280,7 +280,7 @@ void test_editor_commands_parsing() {
         assert(parsed.type == CommandType::EditorCommand);
         auto* ed = parsed.asEditor();
         assert(ed != nullptr);
-        assert(ed->editorType == EditorCommandType::Show);
+        assert(ed->editorType == static_cast<CommandTypeId>(EditorCommandType::Show));
         std::cout << "  ✓ show - format OK" << std::endl;
     } catch (const std::exception& e) {
         std::cout << "  ✗ show - FAILED: " << e.what() << std::endl;
@@ -293,7 +293,7 @@ void test_editor_commands_parsing() {
         assert(parsed.type == CommandType::EditorCommand);
         auto* ed = parsed.asEditor();
         assert(ed != nullptr);
-        assert(ed->editorType == EditorCommandType::Show);
+        assert(ed->editorType == static_cast<CommandTypeId>(EditorCommandType::Show));
         assert(ed->startLine && *ed->startLine == 1);
         assert(ed->endLine && *ed->endLine == 10);
         std::cout << "  ✓ show 1:10 - format OK" << std::endl;
@@ -315,7 +315,7 @@ void test_escape_sequences() {
         assert(cmd.type == CommandType::EditorCommand);
         auto* ed = cmd.asEditor();
         assert(ed != nullptr);
-        assert(ed->editorType == EditorCommandType::Append);
+        assert(ed->editorType == static_cast<CommandTypeId>(EditorCommandType::Append));
         assert(ed->text && !ed->text->empty());
         std::cout << "  ✓ append with escape sequences - OK" << std::endl;
     } catch (const std::exception& e) {
@@ -328,7 +328,7 @@ void test_escape_sequences() {
         assert(cmd.type == CommandType::EditorCommand);
         auto* ed = cmd.asEditor();
         assert(ed != nullptr);
-        assert(ed->editorType == EditorCommandType::Append);
+        assert(ed->editorType == static_cast<CommandTypeId>(EditorCommandType::Append));
         assert(ed->text && !ed->text->empty());
         std::cout << "  ✓ append with escaped quotes - OK" << std::endl;
     } catch (const std::exception& e) {
@@ -341,7 +341,7 @@ void test_escape_sequences() {
         assert(cmd.type == CommandType::EditorCommand);
         auto* ed = cmd.asEditor();
         assert(ed != nullptr);
-        assert(ed->editorType == EditorCommandType::Append);
+        assert(ed->editorType == static_cast<CommandTypeId>(EditorCommandType::Append));
         assert(ed->text && !ed->text->empty());
         std::cout << "  ✓ append with escaped backslashes - OK" << std::endl;
     } catch (const std::exception& e) {
@@ -425,7 +425,7 @@ void test_case_insensitivity() {
         assert(cmd.type == CommandType::WorkSpaceCommand);
         auto* ws = cmd.asWorkSpace();
         assert(ws != nullptr);
-        assert(ws->workSpaceType == WorkSpaceCommandType::Load);
+        assert(ws->workSpaceType == static_cast<CommandTypeId>(WorkSpaceCommandType::Load));
         assert(ws->fileName && *ws->fileName == "test.txt");
         std::cout << "  ✓ LOAD test.txt - OK" << std::endl;
     } catch (const std::exception& e) {
@@ -438,7 +438,7 @@ void test_case_insensitivity() {
         assert(cmd.type == CommandType::WorkSpaceCommand);
         auto* ws = cmd.asWorkSpace();
         assert(ws != nullptr);
-        assert(ws->workSpaceType == WorkSpaceCommandType::Edit);
+        assert(ws->workSpaceType == static_cast<CommandTypeId>(WorkSpaceCommandType::Edit));
         assert(ws->fileName && *ws->fileName == "file.txt");
         std::cout << "  ✓ EdIt file.txt - OK" << std::endl;
     } catch (const std::exception& e) {
@@ -451,7 +451,7 @@ void test_case_insensitivity() {
         assert(cmd.type == CommandType::WorkSpaceCommand);
         auto* ws = cmd.asWorkSpace();
         assert(ws != nullptr);
-        assert(ws->workSpaceType == WorkSpaceCommandType::Init);
+        assert(ws->workSpaceType == static_cast<CommandTypeId>(WorkSpaceCommandType::Init));
         assert(ws->fileName && *ws->fileName == "file.TXT");
         assert(ws->withLog && *ws->withLog == true);
         std::cout << "  ✓ INIT file.TXT WITH-LOG - OK" << std::endl;

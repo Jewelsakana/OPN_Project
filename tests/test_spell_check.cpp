@@ -293,14 +293,14 @@ void testSpellCheckCommandIntegration() {
     assert(parsed1.type == CommandType::WorkSpaceCommand);
     auto* ws1 = parsed1.asWorkSpace();
     assert(ws1 != nullptr);
-    assert(ws1->workSpaceType == WorkSpaceCommandType::SpellCheck);
+    assert(ws1->workSpaceType == static_cast<CommandTypeId>(WorkSpaceCommandType::SpellCheck));
     assert(!ws1->fileName.has_value());
     printTestResult("CommandParser - parse 'spell-check'", true);
 
     // 测试解析 spell-check with file
     auto parsed2 = parser.parse("spell-check test.txt");
     auto* ws2 = parsed2.asWorkSpace();
-    assert(ws2->workSpaceType == WorkSpaceCommandType::SpellCheck);
+    assert(ws2->workSpaceType == static_cast<CommandTypeId>(WorkSpaceCommandType::SpellCheck));
     assert(ws2->fileName == "test.txt");
     printTestResult("CommandParser - parse 'spell-check test.txt'", true);
 }
@@ -315,7 +315,7 @@ void testSpellCheckCommandFactory() {
 
     // 通过 factory 创建 spell-check 命令
     WorkSpaceParsedCommand parsed;
-    parsed.workSpaceType = WorkSpaceCommandType::SpellCheck;
+    parsed.workSpaceType = static_cast<CommandTypeId>(WorkSpaceCommandType::SpellCheck);
     parsed.fileName = std::nullopt;
 
     auto cmd = CommandFactory::createFromParsed(
@@ -330,7 +330,7 @@ void testSpellCheckCommandFactory() {
 
     // 测试带文件名参数
     WorkSpaceParsedCommand parsed2;
-    parsed2.workSpaceType = WorkSpaceCommandType::SpellCheck;
+    parsed2.workSpaceType = static_cast<CommandTypeId>(WorkSpaceCommandType::SpellCheck);
     parsed2.fileName = "test.txt";
 
     auto cmd2 = CommandFactory::createFromParsed(

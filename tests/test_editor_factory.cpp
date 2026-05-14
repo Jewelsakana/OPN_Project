@@ -477,7 +477,7 @@ void test_editor_factory_registration() {
     class MockEditor : public Editor {
     public:
         void executeCommand(std::unique_ptr<Command>) override {}
-        bool supportsCommand(EditorCommandType) const override { return true; }
+        bool supportsCommand(CommandTypeId) const override { return true; }
     };
 
     EditorFactory::registerEditor(".mock", []() -> std::unique_ptr<Editor> {

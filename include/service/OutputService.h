@@ -3,7 +3,7 @@
 
 #include "Model.h"
 #include "DataStructures.h"
-#include "ISpellChecker.h"
+#include "TextSegment.h"
 #include <string>
 #include <vector>
 #include <memory>

@@ -24,7 +24,7 @@ namespace {
 
     // XmlTreeCommand: 需要 IXmlDocument* 和 OutputService*
     static bool _reg_xml_XmlTreeCommand = []() {
-        CommandFactory::registerEditorCreator(EditorCommandType::XmlTree,
+        CommandFactory::registerEditorCreator(static_cast<CommandTypeId>(EditorCommandType::XmlTree),
             [](const EditorParsedCommand& ed, const EditorCommandContext& ctx) -> std::unique_ptr<Command> {
                 if (ctx.xmlEditor) {
                     return std::make_unique<XmlTreeCommand>(

@@ -5,7 +5,7 @@
 #include <string>
 #include <stdexcept>
 #include "Model.h"
-#include "ISpellChecker.h"
+#include "TextSegment.h"
 
 // 自定义异常类，当TextEngine检测到非法操作时抛出
 class TextEngineException : public std::runtime_error {

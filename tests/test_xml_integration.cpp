@@ -33,7 +33,7 @@ void test_xml_tree_parsing() {
         auto parsed = parser.parse("xml-tree");
         auto* ed = parsed.asEditor();
         assert(ed != nullptr);
-        assert(ed->editorType == EditorCommandType::XmlTree);
+        assert(ed->editorType == static_cast<CommandTypeId>(EditorCommandType::XmlTree));
         printTestResult("xml-tree without file parameter", true);
     }
 
@@ -42,7 +42,7 @@ void test_xml_tree_parsing() {
         auto parsed = parser.parse("xml-tree test.xml");
         auto* ed = parsed.asEditor();
         assert(ed != nullptr);
-        assert(ed->editorType == EditorCommandType::XmlTree);
+        assert(ed->editorType == static_cast<CommandTypeId>(EditorCommandType::XmlTree));
         assert(ed->text.has_value());
         assert(ed->text.value() == "test.xml");
         printTestResult("xml-tree with file parameter", true);
@@ -205,20 +205,20 @@ void test_supports_command_text_editor() {
     TextEditor editor;
 
     // Text commands should be supported
-    assert(editor.supportsCommand(EditorCommandType::Append));
-    assert(editor.supportsCommand(EditorCommandType::Insert));
-    assert(editor.supportsCommand(EditorCommandType::Delete));
-    assert(editor.supportsCommand(EditorCommandType::Replace));
-    assert(editor.supportsCommand(EditorCommandType::Show));
+    assert(editor.supportsCommand(static_cast<CommandTypeId>(EditorCommandType::Append)));
+    assert(editor.supportsCommand(static_cast<CommandTypeId>(EditorCommandType::Insert)));
+    assert(editor.supportsCommand(static_cast<CommandTypeId>(EditorCommandType::Delete)));
+    assert(editor.supportsCommand(static_cast<CommandTypeId>(EditorCommandType::Replace)));
+    assert(editor.supportsCommand(static_cast<CommandTypeId>(EditorCommandType::Show)));
     printTestResult("TextEditor supports all text commands", true);
 
     // XML commands should NOT be supported
-    assert(!editor.supportsCommand(EditorCommandType::InsertBefore));
-    assert(!editor.supportsCommand(EditorCommandType::AppendChild));
-    assert(!editor.supportsCommand(EditorCommandType::EditId));
-    assert(!editor.supportsCommand(EditorCommandType::EditText_));
-    assert(!editor.supportsCommand(EditorCommandType::XmlDelete));
-    assert(!editor.supportsCommand(EditorCommandType::XmlTree));
+    assert(!editor.supportsCommand(static_cast<CommandTypeId>(EditorCommandType::InsertBefore)));
+    assert(!editor.supportsCommand(static_cast<CommandTypeId>(EditorCommandType::AppendChild)));
+    assert(!editor.supportsCommand(static_cast<CommandTypeId>(EditorCommandType::EditId)));
+    assert(!editor.supportsCommand(static_cast<CommandTypeId>(EditorCommandType::EditText_)));
+    assert(!editor.supportsCommand(static_cast<CommandTypeId>(EditorCommandType::XmlDelete)));
+    assert(!editor.supportsCommand(static_cast<CommandTypeId>(EditorCommandType::XmlTree)));
     printTestResult("TextEditor rejects all XML commands", true);
 
     std::cout << "  All TextEditor supportsCommand tests passed!" << std::endl << std::endl;
@@ -233,20 +233,20 @@ void test_supports_command_xml_editor() {
     XmlEditor editor;
 
     // XML commands should be supported
-    assert(editor.supportsCommand(EditorCommandType::InsertBefore));
-    assert(editor.supportsCommand(EditorCommandType::AppendChild));
-    assert(editor.supportsCommand(EditorCommandType::EditId));
-    assert(editor.supportsCommand(EditorCommandType::EditText_));
-    assert(editor.supportsCommand(EditorCommandType::XmlDelete));
-    assert(editor.supportsCommand(EditorCommandType::XmlTree));
+    assert(editor.supportsCommand(static_cast<CommandTypeId>(EditorCommandType::InsertBefore)));
+    assert(editor.supportsCommand(static_cast<CommandTypeId>(EditorCommandType::AppendChild)));
+    assert(editor.supportsCommand(static_cast<CommandTypeId>(EditorCommandType::EditId)));
+    assert(editor.supportsCommand(static_cast<CommandTypeId>(EditorCommandType::EditText_)));
+    assert(editor.supportsCommand(static_cast<CommandTypeId>(EditorCommandType::XmlDelete)));
+    assert(editor.supportsCommand(static_cast<CommandTypeId>(EditorCommandType::XmlTree)));
     printTestResult("XmlEditor supports all XML commands", true);
 
     // Text commands should NOT be supported
-    assert(!editor.supportsCommand(EditorCommandType::Append));
-    assert(!editor.supportsCommand(EditorCommandType::Insert));
-    assert(!editor.supportsCommand(EditorCommandType::Delete));
-    assert(!editor.supportsCommand(EditorCommandType::Replace));
-    assert(!editor.supportsCommand(EditorCommandType::Show));
+    assert(!editor.supportsCommand(static_cast<CommandTypeId>(EditorCommandType::Append)));
+    assert(!editor.supportsCommand(static_cast<CommandTypeId>(EditorCommandType::Insert)));
+    assert(!editor.supportsCommand(static_cast<CommandTypeId>(EditorCommandType::Delete)));
+    assert(!editor.supportsCommand(static_cast<CommandTypeId>(EditorCommandType::Replace)));
+    assert(!editor.supportsCommand(static_cast<CommandTypeId>(EditorCommandType::Show)));
     printTestResult("XmlEditor rejects all text commands", true);
 
     std::cout << "  All XmlEditor supportsCommand tests passed!" << std::endl << std::endl;
@@ -388,23 +388,23 @@ void test_command_validation() {
     // XmlEditor rejects text commands
     {
         XmlEditor editor;
-        assert(!editor.supportsCommand(EditorCommandType::Append));
-        assert(!editor.supportsCommand(EditorCommandType::Insert));
-        assert(!editor.supportsCommand(EditorCommandType::Delete));
-        assert(!editor.supportsCommand(EditorCommandType::Replace));
-        assert(!editor.supportsCommand(EditorCommandType::Show));
+        assert(!editor.supportsCommand(static_cast<CommandTypeId>(EditorCommandType::Append)));
+        assert(!editor.supportsCommand(static_cast<CommandTypeId>(EditorCommandType::Insert)));
+        assert(!editor.supportsCommand(static_cast<CommandTypeId>(EditorCommandType::Delete)));
+        assert(!editor.supportsCommand(static_cast<CommandTypeId>(EditorCommandType::Replace)));
+        assert(!editor.supportsCommand(static_cast<CommandTypeId>(EditorCommandType::Show)));
         printTestResult("XmlEditor rejects all 5 text commands", true);
     }
 
     // TextEditor rejects XML commands
     {
         TextEditor editor;
-        assert(!editor.supportsCommand(EditorCommandType::InsertBefore));
-        assert(!editor.supportsCommand(EditorCommandType::AppendChild));
-        assert(!editor.supportsCommand(EditorCommandType::EditId));
-        assert(!editor.supportsCommand(EditorCommandType::EditText_));
-        assert(!editor.supportsCommand(EditorCommandType::XmlDelete));
-        assert(!editor.supportsCommand(EditorCommandType::XmlTree));
+        assert(!editor.supportsCommand(static_cast<CommandTypeId>(EditorCommandType::InsertBefore)));
+        assert(!editor.supportsCommand(static_cast<CommandTypeId>(EditorCommandType::AppendChild)));
+        assert(!editor.supportsCommand(static_cast<CommandTypeId>(EditorCommandType::EditId)));
+        assert(!editor.supportsCommand(static_cast<CommandTypeId>(EditorCommandType::EditText_)));
+        assert(!editor.supportsCommand(static_cast<CommandTypeId>(EditorCommandType::XmlDelete)));
+        assert(!editor.supportsCommand(static_cast<CommandTypeId>(EditorCommandType::XmlTree)));
         printTestResult("TextEditor rejects all 6 XML commands", true);
     }
 
@@ -425,8 +425,8 @@ void test_editor_factory_xml_integration() {
     printTestResult("EditorFactory creates XmlEditor for .xml", true);
 
     // 验证 XML editor supports XML commands
-    assert(xmlEditor->supportsCommand(EditorCommandType::XmlTree));
-    assert(!xmlEditor->supportsCommand(EditorCommandType::Append));
+    assert(xmlEditor->supportsCommand(static_cast<CommandTypeId>(EditorCommandType::XmlTree)));
+    assert(!xmlEditor->supportsCommand(static_cast<CommandTypeId>(EditorCommandType::Append)));
     printTestResult("Factory-created XmlEditor has correct supportsCommand", true);
 
     std::cout << "  All EditorFactory XML integration tests passed!" << std::endl << std::endl;

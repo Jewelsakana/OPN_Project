@@ -52,8 +52,8 @@ public:
     // 检查是否可以Redo
     bool canRedo() const override;
 
-    // 检查是否支持某个命令类型
-    bool supportsCommand(EditorCommandType type) const override;
+    // 检查是否支持某个命令类型（CommandTypeId 支持插件运行时注册的类型）
+    bool supportsCommand(CommandTypeId type) const override;
 
     // 文件内容序列化/反序列化
     void loadFromData(const std::string& content) override;

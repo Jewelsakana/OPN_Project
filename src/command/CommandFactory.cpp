@@ -6,22 +6,22 @@
 #include <unordered_map>
 
 namespace {
-    std::unordered_map<EditorCommandType, EditorCommandCreator>& editorRegistry() {
-        static std::unordered_map<EditorCommandType, EditorCommandCreator> registry;
+    std::unordered_map<CommandTypeId, EditorCommandCreator>& editorRegistry() {
+        static std::unordered_map<CommandTypeId, EditorCommandCreator> registry;
         return registry;
     }
 
-    std::unordered_map<WorkSpaceCommandType, WorkSpaceCommandCreator>& workSpaceRegistry() {
-        static std::unordered_map<WorkSpaceCommandType, WorkSpaceCommandCreator> registry;
+    std::unordered_map<CommandTypeId, WorkSpaceCommandCreator>& workSpaceRegistry() {
+        static std::unordered_map<CommandTypeId, WorkSpaceCommandCreator> registry;
         return registry;
     }
 }
 
-void CommandFactory::registerEditorCreator(EditorCommandType type, EditorCommandCreator creator) {
+void CommandFactory::registerEditorCreator(CommandTypeId type, EditorCommandCreator creator) {
     editorRegistry()[type] = std::move(creator);
 }
 
-void CommandFactory::registerWorkSpaceCreator(WorkSpaceCommandType type, WorkSpaceCommandCreator creator) {
+void CommandFactory::registerWorkSpaceCreator(CommandTypeId type, WorkSpaceCommandCreator creator) {
     workSpaceRegistry()[type] = std::move(creator);
 }
 

@@ -5,7 +5,7 @@
 #include <vector>
 #include <utility>
 #include <stdexcept>
-#include "ISpellChecker.h"
+#include "TextSegment.h"
 
 // XML文档异常基类
 class XmlDocumentException : public std::runtime_error {

@@ -437,7 +437,7 @@ void testCommandParsing() {
         auto parsed = parser.parse("insert-before item newId targetId");
         auto* ed = parsed.asEditor();
         assert(ed != nullptr);
-        assert(ed->editorType == EditorCommandType::InsertBefore);
+        assert(ed->editorType == static_cast<CommandTypeId>(EditorCommandType::InsertBefore));
         assert(ed->tagName.value_or("") == "item");
         assert(ed->newId.value_or("") == "newId");
         assert(ed->targetId.value_or("") == "targetId");
@@ -460,7 +460,7 @@ void testCommandParsing() {
         auto parsed = parser.parse("append-child child newId parentId");
         auto* ed = parsed.asEditor();
         assert(ed != nullptr);
-        assert(ed->editorType == EditorCommandType::AppendChild);
+        assert(ed->editorType == static_cast<CommandTypeId>(EditorCommandType::AppendChild));
 
         printTestResult("testCommandParsing - append-child", true);
     }
@@ -470,7 +470,7 @@ void testCommandParsing() {
         auto parsed = parser.parse("edit-id oldId newId");
         auto* ed = parsed.asEditor();
         assert(ed != nullptr);
-        assert(ed->editorType == EditorCommandType::EditId);
+        assert(ed->editorType == static_cast<CommandTypeId>(EditorCommandType::EditId));
         assert(ed->targetId.value_or("") == "oldId");
         assert(ed->newId.value_or("") == "newId");
 
@@ -482,7 +482,7 @@ void testCommandParsing() {
         auto parsed = parser.parse("edit-text elem \"new content\"");
         auto* ed = parsed.asEditor();
         assert(ed != nullptr);
-        assert(ed->editorType == EditorCommandType::EditText_);
+        assert(ed->editorType == static_cast<CommandTypeId>(EditorCommandType::EditText_));
         assert(ed->targetId.value_or("") == "elem");
         assert(ed->text.value_or("") == "new content");
 
@@ -503,7 +503,7 @@ void testCommandParsing() {
         auto parsed = parser.parse("delete myElement");
         auto* ed = parsed.asEditor();
         assert(ed != nullptr);
-        assert(ed->editorType == EditorCommandType::XmlDelete);
+        assert(ed->editorType == static_cast<CommandTypeId>(EditorCommandType::XmlDelete));
         assert(ed->targetId.value_or("") == "myElement");
 
         printTestResult("testCommandParsing - xml delete", true);
@@ -514,7 +514,7 @@ void testCommandParsing() {
         auto parsed = parser.parse("delete 1:5 10");
         auto* ed = parsed.asEditor();
         assert(ed != nullptr);
-        assert(ed->editorType == EditorCommandType::Delete);
+        assert(ed->editorType == static_cast<CommandTypeId>(EditorCommandType::Delete));
         assert(ed->line.value_or(0) == 1);
         assert(ed->column.value_or(0) == 5);
         assert(ed->length.value_or(0) == 10);

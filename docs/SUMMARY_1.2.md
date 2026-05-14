@@ -678,3 +678,241 @@ spellCheckerProduct: mock    # 使用内置 Mock 拼写检查器
 | 移除的无用 include | 6 处（TextEditor / XmlEditor / TextEngine / WorkSpaceCommand） |
 | 编译警告 | 0 |
 | 测试通过 | 14/14 套件全数通过 |
+
+---
+
+# 第八部分：design-29 重构 — 插件化架构
+
+按照 `design-29.md` 的要求，对项目进行了插件化架构重构。全部 14 个测试套件通过，编译无警告。
+
+## 1. TextSegment 提取到独立头文件（消除 Editor → ISpellChecker 耦合）
+
+**修改文件：**
+- `include/TextSegment.h` — 新建，提取 `TextSegment` 和 `SpellCheckResult` 结构体
+- `include/ISpellChecker.h` — 改为 include `TextSegment.h`，移除结构体定义
+- `include/Editor.h` — `#include "ISpellChecker.h"` → `#include "TextSegment.h"`
+- `include/TextEngine.h` — 同上
+- `include/IXmlDocument.h` — 同上
+- `include/OutputService.h` — 同上
+
+**效果：** Editor 接口不再依赖 ISpellChecker 拼写检查模块，仅依赖 TextSegment 纯数据结构。
+
+## 2. 命令解析器自注册（消除 registerStrategies 集中列表）
+
+**修改文件：**
+- `include/CommandParser.h` — 新增 `static registerStrategyFactory()` 方法和 `REGISTER_PARSER` 宏
+- `src/CommandParser.cpp` — 新增全局工厂注册表；`registerStrategies()` 改为遍历工厂表自动创建策略实例
+- `src/CommandParserStrategy.cpp` — 新增 23 个 `REGISTER_PARSER` 宏调用，替代原来 `registerStrategies()` 中的 push_back 列表
+
+**效果：** 插件只需在其 .cpp 文件中添加 `REGISTER_PARSER(MyPluginParser)` 即可注册新命令解析器，无需修改核心代码。
+
+## 3. 命令类型运行时注册（打破封闭枚举）
+
+**修改文件：**
+- `include/CommandParser.h` — 新增 `using CommandTypeId = int;`，新增 `CommandRegistry` 类（`registerEditorType` / `registerWorkSpaceType`）
+- `EditorParsedCommand::editorType` 和 `WorkSpaceParsedCommand::workSpaceType` 从 enum 改为 `CommandTypeId`
+- `include/Editor.h` — `supportsCommand(EditorCommandType)` → `supportsCommand(CommandTypeId)`
+- `include/CommandFactory.h` — `registerEditorCreator` 和 `registerWorkSpaceCreator` 签名改为接受 `CommandTypeId`
+- 所有宏（`REGISTER_EDITOR_CMD_GUARDED` 等）添加 `static_cast<CommandTypeId>`
+- `src/TextEditor.cpp`、`src/XmlEditor.cpp` — `supportsCommand` 改用 `static_cast<EditorCommandType>` 的 switch
+
+**效果：** 插件可调用 `CommandRegistry::registerEditorType("sudoku-set")` 获得命令类型 ID（>= 1000），与内置枚举不冲突。
+
+## 4. EditorCommandContext 插件上下文（void* 机制）
+
+**修改文件：**
+- `include/CommandFactory.h` — `EditorCommandContext` 新增 `void* pluginContext = nullptr` 字段
+
+**效果：** 插件 Editor 子类在 `populateContext()` 中设置自己的上下文对象指针，插件命令 creator 通过 downcast 取回。
+
+## 5. EditorParsedCommand 通用参数
+
+**修改文件：**
+- `include/CommandParser.h` — `EditorParsedCommand` 新增 `std::vector<std::string> args` 字段
+
+**效果：** 插件解析器可将自定义参数存入 args，插件命令从中提取，无需复用 XML 专用字段。
+
+## 6. Package 隔离与 Makefile 自动化
+
+**第一阶段目录结构（初版）：**
+
+```
+src/
+  core/         → 核心基础设施（23 文件）: WorkSpace, CommandController, CommandParser, ...
+  text/         → 文本编辑器（3 文件）:  TextEditor, TextEngine, TextCommands
+  xml/          → XML 编辑器（4 文件）:   XmlEditor, XmlDocumentWrapper, XMLCommand, pugixml
+  plugin/
+    spell/      → 拼写检查（4 文件）:      SpellCheckCommand, MockSpellChecker, HttpSpellCheckerAdapter, HttpClient
+    stats/      → 编辑时长（2 文件）:      EditDurationTracker, EditDurationDecorator
+```
+
+**第二阶段：core 细化拆分 + include 镜像（最终版）**
+
+将 core/ 的 23 个文件按职责进一步拆分为 6 个独立 package，同时 include/ 完全镜像 src/ 目录结构。
+
+**src/ 最终结构：**
+
+```
+src/
+  main.cpp                      ← 程序入口
+  command/    (6)  ← 命令解析/创建/分发/撤销
+                     CommandController, CommandParser, CommandParserStrategy,
+                     CommandFactory, CommandManager, WorkSpaceCommand
+  workspace/  (6)  ← 工作区门面 + 文档管理 + 协调器
+                     WorkSpace, DocumentManager, FileCoordinator,
+                     EditorCoordinator, LogCoordinator, ConfigManager
+  service/    (5)  ← 后端服务（文件IO/目录/输出/序列化/编辑器工厂）
+                     FileSystemService, DirectoryService, OutputService,
+                     ConfigSerializer, EditorFactory
+  log/        (3)  ← 日志子系统
+                     Logger, LoggerManager, LogCommand
+  event/      (2)  ← 观察者模式基础设施
+                     ObserverManager, Event
+  util/       (1)  ← 通用工具
+                     StringUtils
+  text/       (3)  ← 文本编辑器
+                     TextEditor, TextEngine, TextCommands
+  xml/        (4)  ← XML 编辑器（含 pugixml 库）
+                     XmlEditor, XmlDocumentWrapper, XMLCommand, pugixml
+  plugin/spell/(4) ← 拼写检查插件
+  plugin/stats/(2) ← 编辑时长统计插件
+```
+
+**include/ 最终结构（与 src/ 完全镜像）：**
+
+```
+include/
+  command/    (7) ← Command.h, CommandController.h, CommandParser.h,
+                    CommandParserStrategy.h, CommandFactory.h,
+                    CommandManager.h, WorkSpaceCommand.h
+  workspace/  (7) ← WorkSpace.h, DocumentManager.h, FileCoordinator.h,
+                    EditorCoordinator.h, LogCoordinator.h,
+                    ConfigManager.h, DataStructures.h
+  service/    (6) ← FileSystemService.h, DirectoryService.h,
+                    OutputService.h, ConfigSerializer.h,
+                    EditorFactory.h, Model.h
+  log/        (3) ← Logger.h, LoggerManager.h, LogCommand.h
+  event/      (3) ← Observe.h, Event.h, ObserverManager.h
+  editor/     (1) ← Editor.h
+  util/       (2) ← StringUtils.h, FilesystemCompat.h
+  text/       (3) ← TextEditor.h, TextEngine.h, TextCommands.h
+  xml/        (5) ← XmlEditor.h, XmlDocumentWrapper.h, IXmlDocument.h,
+                    XMLCommand.h, pugixml.hpp, pugiconfig.hpp
+  plugin/spell/(6)← ISpellChecker.h, MockSpellChecker.h,
+                    HttpSpellCheckerAdapter.h, SpellCheckCommand.h,
+                    HttpClient.h, TextSegment.h
+  plugin/stats/(2)← EditDurationTracker.h, EditDurationDecorator.h
+```
+
+**Makefile 更新：**
+- 每个 include 子目录都有独立的 `-I` 标志（11 个 -I 路径），`#include` 语句无需修改
+- `SRCS = $(shell find $(SRC_DIR) -name '*.cpp')` — 递归自动发现所有子目录源文件
+- `dirs` 目标自动创建与 src/ 镜像的 build/ 子目录结构
+- 新增 `src/plugin/<name>/` + `include/plugin/<name>/` 即可自动参与编译
+
+**职责划分对照表：**
+
+| Package | 职责 | 文件数 |
+|---------|------|--------|
+| command | 命令字符串解析、策略派发、工厂创建、撤销/重做管理、工作区命令 | 6 |
+| workspace | 工作区门面、打开文件生命周期、四个业务协调器、配置编排 | 6 |
+| service | 文件系统抽象、目录树遍历、格式化输出、配置序列化、编辑器工厂 | 5 |
+| log | 日志记录器、日志生命周期管理、日志命令（启停/显示） | 3 |
+| event | 事件模型、观察者接口、观察者管理基类 | 2 |
+| util | 字符串工具函数（trim/split/format）、文件系统兼容头 | 1+1 |
+| editor | 编辑器抽象接口（Editor） | 1 |
+| text | 文本编辑器实现 + 文本引擎 + 文本命令 | 3+3 |
+| xml | XML编辑器实现 + XML文档适配器 + XML命令 + PugiXML库 | 4+5 |
+| plugin/spell | 拼写检查（适配器接口、Mock实现、HTTP实现、命令、HTTP客户端） | 4+6 |
+| plugin/stats | 编辑时长统计（观察者/装饰器） | 2+2 |
+
+## 设计29 重构统计
+
+| 指标 | 数值 |
+|------|------|
+| 消除的核心依赖 | Editor → ISpellChecker 耦合解除 |
+| 命令解析器注册 | 集中式列表 → 23 个自注册宏 |
+| 命令类型系统 | 封闭枚举 → 运行时可注册 int ID |
+| 插件上下文 | void* 通用指针 |
+| 解析结果扩展 | 新增通用 args 字段 |
+| 目录结构（初版） | 平铺 37 文件 → 6 个 package 目录 |
+| 目录结构（最终） | core/ 拆分为 6 个子包，共 11 个 package |
+| include 镜像 | include/ 与 src/ 完全对应（11 子目录 + 12 个 -I 标志含 common/） |
+| 编译警告 | 0 |
+| 测试通过 | 14/14 套件全数通过 |
+
+## 7. 后续修复：跨包依赖消除 + 插件命令宏
+
+**修改文件：**
+- `include/common/` — 新建共享目录，将 `TextSegment.h` 从 `include/plugin/spell/` 移入
+- `include/command/CommandFactory.h` — 新增 `REGISTER_PLUGIN_CMD(TYPE_ID, CLASS)` 宏（使用 `ctx.pluginContext` + `ed.args`）
+- `Makefile` — 新增 `-Iinclude/common`
+- `tests/test_editor_factory.cpp` — MockEditor::supportsCommand 签名更新为 `CommandTypeId`
+
+**效果：**
+- 核心包（editor/xml/text/service/workspace）不再依赖 `plugin/spell/` 目录，`TextSegment` 类型位于共享 `common/` 包
+- 插件注册编辑器命令只需一行：`REGISTER_PLUGIN_CMD(myTypeId, MyPluginCommand)`
+
+---
+
+# 第九部分：插件化能力最终评估
+
+## 数独插件需要做的事（只需创建文件，零核心修改）
+
+假设要新增 `.sdk` 数独插件，只需要在项目中新增以下目录和文件：
+
+```
+src/plugin/sudoku/
+  SudokuEditor.cpp         ← Editor 子类
+  SudokuCommands.cpp       ← 命令实现
+  SudokuParser.cpp         ← 命令解析器
+include/plugin/sudoku/
+  SudokuEditor.h
+  SudokuCommands.h
+  SudokuParser.h
+```
+
+**步骤：**
+
+1. **注册编辑器类型**（SudokuEditor.cpp）：
+   ```cpp
+   REGISTER_EDITOR(".sdk", SudokuEditor)
+   ```
+
+2. **获取命令类型 ID**：
+   ```cpp
+   static CommandTypeId CMD_SUDOKU_SET = CommandRegistry::registerEditorType("sudoku-set");
+   ```
+
+3. **注册解析器**（SudokuParser.cpp）：
+   ```cpp
+   REGISTER_PARSER(SudokuSetParser)
+   ```
+
+4. **注册命令创建器**（SudokuCommands.cpp）：
+   ```cpp
+   REGISTER_PLUGIN_CMD(CMD_SUDOKU_SET, SudokuSetCommand)
+   ```
+
+5. **SudokuEditor 实现 populateContext + supportsCommand**
+
+**无需修改任何核心文件。** Makefile 的 `find` 自动发现新源文件，插件包即插即用。
+
+## SOLID 最终评估
+
+| 原则 | 状态 | 说明 |
+|------|------|------|
+| **SRP** | ✅ | 各 package 职责单一：command 管命令、workspace 管工作区、service 管后端、log/event/util 各司其职 |
+| **OCP** | ✅ | Editor 子类（populateContext/initialize）、解析器（REGISTER_PARSER）、命令类型（CommandRegistry）、编辑器类型（REGISTER_EDITOR）、插件命令（REGISTER_PLUGIN_CMD）均对扩展开放 |
+| **LSP** | ✅ | Editor 子类可替换，基类方法有合理默认实现，switch 有 default 分支 |
+| **ISP** | ✅ | IXmlDocument 拆分为 3 微接口；TextSegment 迁至 common/ 消除跨包依赖；REGISTER_PLUGIN_CMD 让插件无需依赖文本/XML 上下文 |
+| **DIP** | ✅ | 核心模块依赖抽象，dynamic_cast 已清零 |
+
+## 残馀改进空间（非阻塞）
+
+| 项目 | 说明 | 优先级 |
+|------|------|--------|
+| `EditorCommandContext` 仍含 text/xml 专用字段 | `lines`/`textEngine`/`xmlEditor` 对插件无用，但 `populateContext` 虚方法确保插件可忽略它们 | 低 |
+| `EditorParsedCommand` 仍含 XML 专用字段 | `tagName`/`newId`/`targetId` 对插件无用，插件使用 `args` | 低 |
+| `Editor::getTextsToCheck()` 对所有编辑器可见 | 非文本编辑器返回空列表，属于轻度 ISP 冗余 | 低 |
+| `Makefile -I` 标志需手动为新插件添加 | 可改为 `-Iinclude/plugin/*` 通配 | 低 |

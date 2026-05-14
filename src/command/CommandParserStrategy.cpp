@@ -3,6 +3,35 @@
 #include <regex>
 #include <stdexcept>
 
+// 解析器自注册（替代原来的 registerStrategies() 集中式 push_back）
+// 插件只需在自己的 .cpp 中添加 REGISTER_PARSER(MyPluginParser) 即可
+namespace {
+    REGISTER_PARSER(AppendParser)
+    REGISTER_PARSER(InsertParser)
+    REGISTER_PARSER(DeleteParser)
+    REGISTER_PARSER(ReplaceParser)
+    REGISTER_PARSER(ShowParser)
+    REGISTER_PARSER(LoadParser)
+    REGISTER_PARSER(SaveParser)
+    REGISTER_PARSER(InitParser)
+    REGISTER_PARSER(CloseParser)
+    REGISTER_PARSER(EditParser)
+    REGISTER_PARSER(EditorListParser)
+    REGISTER_PARSER(DirTreeParser)
+    REGISTER_PARSER(UndoParser)
+    REGISTER_PARSER(RedoParser)
+    REGISTER_PARSER(ExitParser)
+    REGISTER_PARSER(LogonParser)
+    REGISTER_PARSER(LogoffParser)
+    REGISTER_PARSER(LogshowParser)
+    REGISTER_PARSER(InsertBeforeParser)
+    REGISTER_PARSER(AppendChildParser)
+    REGISTER_PARSER(EditIdParser)
+    REGISTER_PARSER(EditTextParser)
+    REGISTER_PARSER(XmlTreeParser)
+    REGISTER_PARSER(SpellCheckParser)
+}
+
 std::string parseQuotedTextHelper(const std::string& text) {
     if (text.length() < 2 || text.front() != '"' || text.back() != '"') {
         throw ArgumentParseException(text, "Text must be enclosed in double quotes");
@@ -49,7 +78,7 @@ namespace {
         ParsedCommand p;
         p.type = CommandType::EditorCommand;
         p.data = EditorParsedCommand{};
-        p.asEditor()->editorType = type;
+        p.asEditor()->editorType = static_cast<CommandTypeId>(type);
         return p;
     }
 
@@ -58,7 +87,7 @@ namespace {
         ParsedCommand p;
         p.type = CommandType::WorkSpaceCommand;
         p.data = WorkSpaceParsedCommand{};
-        p.asWorkSpace()->workSpaceType = type;
+        p.asWorkSpace()->workSpaceType = static_cast<CommandTypeId>(type);
         return p;
     }
 }

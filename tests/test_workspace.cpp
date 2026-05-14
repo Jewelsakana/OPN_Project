@@ -157,7 +157,7 @@ void test_command_controller() {
         ParsedCommand parsed;
         parsed.type = CommandType::EditorCommand;
         EditorParsedCommand ed;
-        ed.editorType = EditorCommandType::Append;
+        ed.editorType = static_cast<CommandTypeId>(EditorCommandType::Append);
         ed.text = "Hello World";
         parsed.data = ed;
 

@@ -73,8 +73,8 @@ void TextEditor::setLines(const std::vector<std::string>& newLines) {
     setModified(false); // 加载文件时视为未修改
 }
 
-bool TextEditor::supportsCommand(EditorCommandType type) const {
-    switch (type) {
+bool TextEditor::supportsCommand(CommandTypeId type) const {
+    switch (static_cast<EditorCommandType>(type)) {
         case EditorCommandType::Append:
         case EditorCommandType::Insert:
         case EditorCommandType::Delete:
@@ -82,6 +82,7 @@ bool TextEditor::supportsCommand(EditorCommandType type) const {
         case EditorCommandType::Show:
             return true;
         default:
+            // 插件注册的类型（ID >= 1000），TextEditor 默认不支持
             return false;
     }
 }

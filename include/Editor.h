@@ -9,6 +9,7 @@
 
 // 前向声明
 class Command;
+struct EditorCommandContext;
 
 // Editor接口：所有编辑器的基类
 class Editor {
@@ -37,9 +38,13 @@ public:
     virtual void setModified(bool modified) {}
 
     // 获取待检查的文本片段列表（用于拼写检查）
-    // TextEditor：每行返回一个 TextSegment
-    // XmlEditor：遍历 XML 树，仅提取可检查的文本节点内容
     virtual std::vector<TextSegment> getTextsToCheck() const { return {}; }
+
+    // 填充编辑器命令上下文（由子类实现，消除CommandFactory中的dynamic_cast分支）
+    virtual void populateContext(EditorCommandContext& ctx) {}
+
+    // 初始化编辑器内部组件（由子类实现，消除WorkSpace中的dynamic_cast分支）
+    virtual void initialize() {}
 };
 
 #endif // EDITOR_H

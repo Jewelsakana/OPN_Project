@@ -2,6 +2,7 @@
 #include "TextEngine.h"
 #include "TextCommands.h"
 #include "EditorFactory.h"
+#include "CommandFactory.h"
 
 namespace {
     REGISTER_EDITOR(".txt", TextEditor)
@@ -101,6 +102,17 @@ void TextEditor::initContent(bool withLog) {
 
 std::vector<TextSegment> TextEditor::getTextsToCheck() const {
     return textEngine->getTextsToCheck(lines);
+}
+
+void TextEditor::populateContext(EditorCommandContext& ctx) {
+    ctx.lines = &lines;
+    ctx.textEngine = textEngine.get();
+}
+
+void TextEditor::initialize() {
+    if (!textEngine) {
+        textEngine = std::make_shared<TextEngine>();
+    }
 }
 
 void TextEditor::clear() {

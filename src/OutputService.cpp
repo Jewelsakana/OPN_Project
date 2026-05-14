@@ -78,16 +78,6 @@ void OutputService::outputLine(const std::string& message) {
     }
 }
 
-void OutputService::outputText(const std::string& text) {
-    try {
-        validate();
-        std::cout << text << std::endl;
-    } catch (const std::exception& e) {
-        handleException(e);
-        throw;
-    }
-}
-
 void OutputService::printTreeNode(const TreeNode& node, const std::string& prefix, bool isLast) {
     std::cout << prefix;
     std::cout << (isLast ? "└── " : "├── ");

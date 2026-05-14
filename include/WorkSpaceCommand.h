@@ -18,7 +18,10 @@ public:
     virtual ~WorkSpaceCommand() = default;
 
     // 设置关联的工作区
-    virtual void setWorkSpace(WorkSpace* workspace) { workspace_ = workspace; }
+    void setWorkSpace(WorkSpace* workspace) override { workspace_ = workspace; }
+
+    // 工作区命令是工作区级别
+    bool isWorkSpaceLevel() const override { return true; }
 
 protected:
     WorkSpace* workspace_ = nullptr; // 关联的工作区实例

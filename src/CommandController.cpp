@@ -1,7 +1,5 @@
 #include "CommandController.h"
 #include "WorkSpace.h"
-#include "TextEditor.h"
-#include "WorkSpaceCommand.h"
 #include "CommandFactory.h"
 #include "OutputService.h"
 #include "Event.h"
@@ -41,12 +39,12 @@ void CommandController::parseAndExecuteCommand(const std::string& commandString)
 }
 
 std::unique_ptr<Command> CommandController::createCommandFromParsed(const ParsedCommand& parsed) {
-    return CommandFactory::createFromParsed(parsed, workspace_, getActiveTextEditor());
+    return CommandFactory::createFromParsed(parsed, workspace_);
 }
 
 void CommandController::executeCommand(std::unique_ptr<Command> command) {
-    if (auto* wsCommand = dynamic_cast<WorkSpaceCommand*>(command.get())) {
-        wsCommand->execute();
+    if (command->isWorkSpaceLevel()) {
+        command->execute();
     } else {
         auto activeEditor = workspace_->getActiveEditor();
         if (activeEditor) {
@@ -59,12 +57,4 @@ void CommandController::executeCommand(std::unique_ptr<Command> command) {
 
 WorkSpace* CommandController::getWorkSpace() const {
     return workspace_;
-}
-
-TextEditor* CommandController::getActiveTextEditor() const {
-    auto activeEditor = workspace_->getActiveEditor();
-    if (!activeEditor) {
-        return nullptr;
-    }
-    return dynamic_cast<TextEditor*>(activeEditor.get());
 }

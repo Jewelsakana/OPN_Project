@@ -150,26 +150,23 @@ void testOutputLine() {
     std::cout << "=== OutputLine Tests Complete ===" << std::endl;
 }
 
-// 测试纯文本输出功能
+// 测试 OutputService::outputLine 输出多行文本（原 outputText 已合并到 outputLine）
 void testOutputText() {
-    std::cout << "=== Testing OutputService::outputText ===" << std::endl;
+    std::cout << "=== Testing OutputService::outputLine (multiline) ===" << std::endl;
 
     OutputService outputService;
 
-    // 测试简单文本
-    outputService.outputText("Simple text without newline");
-    std::cout << std::endl; // 添加换行以便阅读测试输出
+    outputService.outputLine("Simple text without newline");
+    std::cout << std::endl;
     printTestResult("Output simple text", true);
 
-    // 测试空文本
-    outputService.outputText("");
+    outputService.outputLine("");
     printTestResult("Output empty text", true);
 
-    // 测试带换行符的文本
-    outputService.outputText("Line 1\nLine 2\nLine 3");
+    outputService.outputLine("Line 1\nLine 2\nLine 3");
     printTestResult("Output text with newlines", true);
 
-    std::cout << "=== OutputText Tests Complete ===" << std::endl;
+    std::cout << "=== OutputLine (multiline) Tests Complete ===" << std::endl;
 }
 
 // 测试Model基类集成

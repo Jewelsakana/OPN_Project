@@ -57,6 +57,9 @@ public:
     // 获取待检查的文本片段列表（用于拼写检查，仅提取 Text 节点内容）
     std::vector<TextSegment> getTextsToCheck() const override;
 
+    // 填充编辑器命令上下文
+    void populateContext(EditorCommandContext& ctx) override;
+
     // 清空编辑器内容
     void clear();
 

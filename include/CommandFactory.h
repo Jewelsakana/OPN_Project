@@ -11,7 +11,6 @@
 class TextEngine;
 class OutputService;
 class WorkSpace;
-class TextEditor;
 class XmlEditor;
 
 // 编辑器命令工厂上下文
@@ -32,8 +31,7 @@ public:
     // 从ParsedCommand创建Command
     static std::unique_ptr<Command> createFromParsed(
         const ParsedCommand& parsed,
-        WorkSpace* workspace,
-        TextEditor* activeTextEditor);
+        WorkSpace* workspace);
 
     // 注册编辑器命令工厂（由各命令类在启动时调用）
     static void registerEditorCreator(EditorCommandType type, EditorCommandCreator creator);

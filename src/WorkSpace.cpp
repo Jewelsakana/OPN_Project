@@ -1,7 +1,5 @@
 #include "WorkSpace.h"
 #include "TextEditor.h"
-#include "TextEngine.h"
-#include "XmlEditor.h"
 #include "EditorFactory.h"
 #include "Logger.h"
 #include "EditDurationTracker.h"
@@ -327,17 +325,9 @@ void WorkSpace::showLog(const std::string& fileName) {
 std::shared_ptr<Editor> WorkSpace::createEditorForExtension(const std::string& extension) const {
     auto editorPtr = EditorFactory::createEditor(extension);
     if (!editorPtr) {
-        // 默认回退到TextEditor
-        auto textEditor = std::make_shared<TextEditor>();
-        auto textEngine = std::make_shared<TextEngine>();
-        textEditor->setTextEngine(textEngine);
-        return textEditor;
+        editorPtr = std::make_unique<TextEditor>();
     }
-    // 如果是TextEditor，注入TextEngine
-    if (auto textEditor = dynamic_cast<TextEditor*>(editorPtr.get())) {
-        auto textEngine = std::make_shared<TextEngine>();
-        textEditor->setTextEngine(textEngine);
-    }
+    editorPtr->initialize();
     return editorPtr;
 }
 

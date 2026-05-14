@@ -197,7 +197,7 @@ void ShowCommand::execute() {
     result_ = textEngine()->show(lines(), startLine_, endLine_);
 
     // 使用OutputService输出结果
-    outputService_->outputText(result_);
+    outputService_->outputLine(result_);
 }
 
 void ShowCommand::undo() {

@@ -11,40 +11,39 @@ namespace {
     REGISTER_WS_CMD_FILENAME(WorkSpaceCommandType::Logshow, LogshowCommand)
 }
 
+std::string LogCommand::resolveTargetFile(const std::string& fileName) const {
+    std::string targetFile = fileName;
+    if (targetFile.empty()) {
+        targetFile = workspace_->getActiveFileName();
+        if (targetFile.empty()) {
+            throw std::runtime_error("No active file to " + std::string(fileName.empty() ? "perform operation" : "use"));
+        }
+    }
+    return targetFile;
+}
+
 // LogonCommand实现
 LogonCommand::LogonCommand(const std::string& fileName) : fileName_(fileName) {}
 
 void LogonCommand::execute() {
     checkWorkSpace();
-    // 获取目标文件名（如果为空则使用当前活动文件）
-    std::string targetFile = fileName_;
-    if (targetFile.empty()) {
-        targetFile = workspace_->getActiveFileName();
-        if (targetFile.empty()) {
-            throw std::runtime_error("No active file to start logging");
-        }
-    }
-    // 记录执行前的状态
+    std::string targetFile = resolveTargetFile(fileName_);
     wasLogging_ = workspace_->isLoggingForFile(targetFile);
-    // 调用工作区方法启动日志记录
     workspace_->startLoggingForFile(targetFile);
-    // 保存实际文件名（用于撤销）
     fileName_ = targetFile;
     workspace_->outputLine("Logging started for file: " + targetFile);
 }
 
 void LogonCommand::undo() {
     checkWorkSpace();
-    // 如果执行前不在记录日志，则停止日志记录
     if (!wasLogging_) {
         workspace_->stopLoggingForFile(fileName_);
         workspace_->outputLine("Logging stopped for file (undo): " + fileName_);
     }
-    // 如果执行前已经在记录日志，则不需要做任何事情
 }
 
 bool LogonCommand::isReadOnly() const {
-    return false; // 启动日志会修改状态
+    return false;
 }
 
 // LogoffCommand实现
@@ -52,35 +51,23 @@ LogoffCommand::LogoffCommand(const std::string& fileName) : fileName_(fileName) 
 
 void LogoffCommand::execute() {
     checkWorkSpace();
-    // 获取目标文件名（如果为空则使用当前活动文件）
-    std::string targetFile = fileName_;
-    if (targetFile.empty()) {
-        targetFile = workspace_->getActiveFileName();
-        if (targetFile.empty()) {
-            throw std::runtime_error("No active file to stop logging");
-        }
-    }
-    // 记录执行前的状态
+    std::string targetFile = resolveTargetFile(fileName_);
     wasLogging_ = workspace_->isLoggingForFile(targetFile);
-    // 调用工作区方法停止日志记录
     workspace_->stopLoggingForFile(targetFile);
-    // 保存实际文件名（用于撤销）
     fileName_ = targetFile;
     workspace_->outputLine("Logging stopped for file: " + targetFile);
 }
 
 void LogoffCommand::undo() {
     checkWorkSpace();
-    // 如果执行前在记录日志，则重新启动日志记录
     if (wasLogging_) {
         workspace_->startLoggingForFile(fileName_);
         workspace_->outputLine("Logging started for file (undo): " + fileName_);
     }
-    // 如果执行前不在记录日志，则不需要做任何事情
 }
 
 bool LogoffCommand::isReadOnly() const {
-    return false; // 停止日志会修改状态
+    return false;
 }
 
 // LogshowCommand实现
@@ -88,14 +75,7 @@ LogshowCommand::LogshowCommand(const std::string& fileName) : fileName_(fileName
 
 void LogshowCommand::execute() {
     checkWorkSpace();
-    std::string targetFile = fileName_;
-    if (targetFile.empty()) {
-        targetFile = workspace_->getActiveFileName();
-        if (targetFile.empty()) {
-            throw std::runtime_error("No active file to show log");
-        }
-    }
-    workspace_->showLog(targetFile);
+    workspace_->showLog(resolveTargetFile(fileName_));
 }
 
 void LogshowCommand::undo() {

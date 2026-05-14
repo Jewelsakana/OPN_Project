@@ -2,6 +2,7 @@
 #include "XMLCommand.h"
 #include "EditorFactory.h"
 #include "XmlDocumentWrapper.h"
+#include "CommandFactory.h"
 
 namespace {
     REGISTER_EDITOR(".xml", XmlEditor)
@@ -123,6 +124,10 @@ void XmlEditor::initContent(bool withLog) {
 
 std::vector<TextSegment> XmlEditor::getTextsToCheck() const {
     return document_->getTextsToCheck();
+}
+
+void XmlEditor::populateContext(EditorCommandContext& ctx) {
+    ctx.xmlEditor = this;
 }
 
 void XmlEditor::clear() {

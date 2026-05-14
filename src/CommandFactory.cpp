@@ -1,9 +1,7 @@
 #include "CommandFactory.h"
-#include "TextEditor.h"
-#include "XmlEditor.h"
 #include "WorkSpace.h"
-#include "WorkSpaceCommand.h"
 #include "OutputService.h"
+#include "Editor.h"
 #include <stdexcept>
 #include <unordered_map>
 
@@ -30,26 +28,17 @@ void CommandFactory::registerWorkSpaceCreator(WorkSpaceCommandType type, WorkSpa
 static EditorCommandContext buildEditorContext(Editor* activeEditor, WorkSpace* workspace) {
     EditorCommandContext ctx;
     ctx.outputService = &workspace->getOutputService();
-
-    if (auto xmlEditor = dynamic_cast<XmlEditor*>(activeEditor)) {
-        ctx.xmlEditor = xmlEditor;
-    } else if (auto textEditor = dynamic_cast<TextEditor*>(activeEditor)) {
-        ctx.lines = &textEditor->getLinesRef();
-        ctx.textEngine = textEditor->getTextEngine().get();
-    }
+    activeEditor->populateContext(ctx);
     return ctx;
 }
 
 std::unique_ptr<Command> CommandFactory::createFromParsed(
     const ParsedCommand& parsed,
-    WorkSpace* workspace,
-    TextEditor* activeTextEditor) {
+    WorkSpace* workspace) {
 
     if (auto* ws = parsed.asWorkSpace()) {
         auto cmd = createWorkSpaceCommand(*ws, workspace);
-        if (auto* wsCmd = dynamic_cast<WorkSpaceCommand*>(cmd.get())) {
-            wsCmd->setWorkSpace(workspace);
-        }
+        cmd->setWorkSpace(workspace);
         return cmd;
     }
 

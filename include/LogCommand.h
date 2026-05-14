@@ -13,6 +13,10 @@ class WorkSpace;
 class LogCommand : public WorkSpaceCommand {
 public:
     virtual ~LogCommand() = default;
+
+protected:
+    // 解析目标文件名：fileName 为空则回退到活动文件名，活动文件也为空则抛出异常
+    std::string resolveTargetFile(const std::string& fileName) const;
 };
 
 // 启动日志记录命令

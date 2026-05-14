@@ -320,7 +320,7 @@ void testSpellCheckCommandFactory() {
 
     auto cmd = CommandFactory::createFromParsed(
         ParsedCommand{CommandType::WorkSpaceCommand, parsed},
-        &workspace, nullptr);
+        &workspace);
 
     assert(cmd != nullptr);
     auto* wsCmd = dynamic_cast<WorkSpaceCommand*>(cmd.get());
@@ -335,7 +335,7 @@ void testSpellCheckCommandFactory() {
 
     auto cmd2 = CommandFactory::createFromParsed(
         ParsedCommand{CommandType::WorkSpaceCommand, parsed2},
-        &workspace, nullptr);
+        &workspace);
     assert(cmd2 != nullptr);
     printTestResult("CommandFactory - creates SpellCheckCommand with filename", true);
 }

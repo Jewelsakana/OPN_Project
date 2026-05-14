@@ -8,7 +8,6 @@
 
 // 前向声明
 class WorkSpace;
-class TextEditor;
 
 // CommandController类：负责命令的创建、分发和执行
 // 职责分离：将命令工厂和分发逻辑从WorkSpace中分离出来
@@ -31,9 +30,6 @@ public:
 
 private:
     WorkSpace* workspace_;  // 指向关联的WorkSpace（不拥有所有权）
-
-    // 从WorkSpace获取活动编辑器（转换为TextEditor）
-    TextEditor* getActiveTextEditor() const;
 };
 
 #endif // COMMANDCONTROLLER_H

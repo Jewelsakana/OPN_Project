@@ -26,9 +26,6 @@ public:
     // 输出单行信息
     void outputLine(const std::string& message);
 
-    // 输出纯文本（用于向后兼容）
-    void outputText(const std::string& text);
-
     // 输出XML树形结构
     void outputXmlTree(const class IXmlDocument& doc);
 

@@ -2,6 +2,7 @@
 # Compiler and flags
 CXX = g++
 CXXFLAGS = -std=c++17 -Wall -finput-charset=UTF-8 -fexec-charset=UTF-8 \
+	-Ithird_party/pugixml \
 	-Iinclude/common \
 	-Iinclude/command -Iinclude/workspace -Iinclude/service \
 	-Iinclude/log -Iinclude/event -Iinclude/editor -Iinclude/util \
@@ -14,16 +15,27 @@ SRC_DIR = src
 BUILD_DIR = build
 TESTS_DIR = tests
 
-# Auto-discover all .cpp files recursively (3 levels)
+# Auto-discover all .cpp files recursively (3 levels) + third_party
 SRCS = $(wildcard $(SRC_DIR)/*.cpp) \
        $(wildcard $(SRC_DIR)/*/*.cpp) \
-       $(wildcard $(SRC_DIR)/*/*/*.cpp)
+       $(wildcard $(SRC_DIR)/*/*/*.cpp) \
+       $(wildcard third_party/*/*.cpp)
 
-# Object files mirror the source tree under build/
-OBJS = $(patsubst $(SRC_DIR)/%.cpp,$(BUILD_DIR)/%.o,$(SRCS))
+# Object files: src/ files mirror tree under build/, third_party files go to build/third_party/
+OBJS = $(patsubst $(SRC_DIR)/%.cpp,$(BUILD_DIR)/%.o,$(filter $(SRC_DIR)/%,$(SRCS))) \
+       $(patsubst third_party/%.cpp,$(BUILD_DIR)/third_party/%.o,$(filter third_party/%,$(SRCS)))
 
 # Executable name
 TARGET = text_editor
+
+# Download pugixml if not present (single-header library, v1.14)
+# PugiXML official repo: https://github.com/zeux/pugixml
+PUGI_DIR = third_party/pugixml
+setup:
+	@if not exist "$(PUGI_DIR)" mkdir "$(PUGI_DIR)"
+	@if not exist "$(PUGI_DIR)/pugixml.hpp" curl -sL https://raw.githubusercontent.com/zeux/pugixml/v1.14/src/pugixml.hpp -o "$(PUGI_DIR)/pugixml.hpp"
+	@if not exist "$(PUGI_DIR)/pugiconfig.hpp" curl -sL https://raw.githubusercontent.com/zeux/pugixml/v1.14/src/pugiconfig.hpp -o "$(PUGI_DIR)/pugiconfig.hpp"
+	@if not exist "$(PUGI_DIR)/pugixml.cpp" curl -sL https://raw.githubusercontent.com/zeux/pugixml/v1.14/src/pugixml.cpp -o "$(PUGI_DIR)/pugixml.cpp"
 
 # Default target
 all: $(TARGET)
@@ -34,6 +46,11 @@ $(TARGET): $(OBJS)
 
 # Compile source files (auto-create output directory before compiling)
 $(BUILD_DIR)/%.o: $(SRC_DIR)/%.cpp
+	@mkdir -p $(dir $@) 2>/dev/null; true
+	$(CXX) $(CXXFLAGS) -c $< -o $@
+
+# Compile third_party sources
+$(BUILD_DIR)/third_party/%.o: third_party/%.cpp
 	@mkdir -p $(dir $@) 2>/dev/null; true
 	$(CXX) $(CXXFLAGS) -c $< -o $@
 

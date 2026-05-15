@@ -545,11 +545,13 @@ TextEditor / XmlEditor / SudokuEditor (低层模块)
 #### 安装与构建
 
 ```bash
+# 1.下载第三方库 pugixml(仅一次)
+mingw32-make setup
 
-# 1. 构建项目（自动发现 src/ 下所有 .cpp 文件）
+# 2. 构建项目（自动发现 src/ 下所有 .cpp 文件）
 mingw32-make all
 
-# 2. 运行程序（交互式命令行）
+# 3. 运行程序（交互式命令行）
 ./text_editor
 ```
 
